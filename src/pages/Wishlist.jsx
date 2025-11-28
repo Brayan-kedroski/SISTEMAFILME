@@ -9,112 +9,6 @@ const Wishlist = () => {
     const { movies, addMovie, moveToDownloaded, removeMovie } = useMovies();
     const { t, language } = useLanguage();
 
-    const [mode, setMode] = useState('single'); // 'single' | 'batch'
-    const [query, setQuery] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [isSearching, setIsSearching] = useState(false);
-    const [batchInput, setBatchInput] = useState('');
-    const [isProcessingBatch, setIsProcessingBatch] = useState(false);
-
-    // Manual entry fields
-    const [manualTitle, setManualTitle] = useState('');
-    const [manualRating, setManualRating] = useState('');
-    const [manualOverview, setManualOverview] = useState('');
-
-    const getTmdbLanguage = (lang) => {
-        switch (lang) {
-            case 'pt': return 'pt-BR';
-            case 'ja': return 'ja-JP';
-            case 'pl': return 'pl-PL';
-            case 'es': return 'es-ES';
-            case 'en': return 'en-US';
-            default: return 'pt-BR';
-        }
-    };
-
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        if (!query.trim()) return;
-
-        setIsSearching(true);
-        const results = await searchMovies(query, getTmdbLanguage(language));
-        setSearchResults(results);
-        setIsSearching(false);
-    };
-
-    const handleAddFromSearch = async (movie) => {
-        const result = await addMovie({
-            title: movie.title,
-            overview: movie.overview,
-            rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
-            poster_path: movie.poster_path,
-            release_date: movie.release_date
-        });
-
-        if (result.skipped.length > 0) {
-            alert(t('duplicateWarning') || `Movie already exists: ${result.skipped[0]}`);
-        }
-
-        setSearchResults([]);
-        setQuery('');
-    };
-
-    const handleManualSubmit = async (e) => {
-        e.preventDefault();
-        if (manualTitle.trim()) {
-            const result = await addMovie({
-                title: manualTitle.trim(),
-                rating: manualRating,
-                overview: manualOverview
-            });
-
-            if (result.skipped.length > 0) {
-                alert(t('duplicateWarning') || `Movie already exists: ${result.skipped[0]}`);
-            } else {
-                setManualTitle('');
-                setManualRating('');
-                setManualOverview('');
-            }
-        }
-    };
-
-    const handleBatchSubmit = async (e) => {
-        e.preventDefault();
-        if (batchInput.trim()) {
-            setIsProcessingBatch(true);
-            const titles = batchInput.split('\n').filter(line => line.trim());
-            const moviesToAdd = [];
-
-            for (const title of titles) {
-                const results = await searchMovies(title, getTmdbLanguage(language));
-
-                if (results && results.length > 0) {
-                    const movie = results[0];
-                    moviesToAdd.push({
-                        title: movie.title,
-                        overview: movie.overview,
-                        rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
-                        poster_path: movie.poster_path,
-                        release_date: movie.release_date
-                    });
-                } else {
-                    moviesToAdd.push({ title });
-                }
-            }
-
-            const result = await addMovie(moviesToAdd);
-
-            if (result.skipped.length > 0) {
-                alert(`${t('batchComplete') || 'Batch complete'}.\n${t('skippedDuplicates') || 'Skipped duplicates'}: ${result.skipped.length}\n(${result.skipped.join(', ')})`);
-            }
-
-            setBatchInput('');
-            setIsProcessingBatch(false);
-        }
-    };
-
-    const wishlistMovies = movies.filter((m) => m.status === 'wishlist');
-
     return (
         <div className="space-y-8">
             <header className="text-center space-y-2">
@@ -243,8 +137,25 @@ const Wishlist = () => {
                             onChange={(e) => setBatchInput(e.target.value)}
                             placeholder="Movie 1&#10;Movie 2&#10;Movie 3"
                             rows={5}
-                            className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none resize-none"
+                            disabled={isProcessingBatch}
+                            className="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none resize-none disabled:opacity-50"
                         />
+
+                        {isProcessingBatch && (
+                            <div className="space-y-2">
+                                <div className="flex justify-between text-xs text-slate-400">
+                                    <span>Processing...</span>
+                                    <span>{batchProgress.current} / {batchProgress.total}</span>
+                                </div>
+                                <div className="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                                    <div
+                                        className="bg-pink-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                        style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
                             disabled={!batchInput.trim() || isProcessingBatch}
@@ -253,7 +164,7 @@ const Wishlist = () => {
                             {isProcessingBatch ? (
                                 <>
                                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                    Processing...
+                                    {t('processing') || 'Processing...'}
                                 </>
                             ) : (
                                 t('add')
