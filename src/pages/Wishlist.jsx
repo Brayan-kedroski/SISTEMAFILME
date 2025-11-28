@@ -88,41 +88,6 @@ const Wishlist = () => {
             if (titles.length === 0) return;
 
             setIsProcessingBatch(true);
-            setBatchProgress({ current: 0, total: titles.length });
-
-            const moviesToAdd = [];
-
-            for (let i = 0; i < titles.length; i++) {
-                const title = titles[i];
-                // Update progress
-                setBatchProgress(prev => ({ ...prev, current: i + 1 }));
-
-                // Small delay to be nice to the API and allow UI to update
-                await new Promise(resolve => setTimeout(resolve, 500));
-
-                try {
-                    const results = await searchMovies(title, getTmdbLanguage(language));
-
-                    if (results && results.length > 0) {
-                        const movie = results[0];
-                        moviesToAdd.push({
-                            title: movie.title,
-                            overview: movie.overview,
-                            rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
-                            poster_path: movie.poster_path,
-                            release_date: movie.release_date
-                        });
-                    } else {
-                        moviesToAdd.push({ title });
-                    }
-                } catch (error) {
-                    console.error(`Error fetching ${title}:`, error);
-                    moviesToAdd.push({ title }); // Fallback on error
-                }
-            }
-
-            const result = await addMovie(moviesToAdd);
-
             if (result.skipped.length > 0) {
                 alert(`${t('batchComplete') || 'Batch complete'}.\n${t('skippedDuplicates') || 'Skipped duplicates'}: ${result.skipped.length}\n(${result.skipped.join(', ')})`);
             }
