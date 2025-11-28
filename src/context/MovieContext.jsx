@@ -164,6 +164,11 @@ export const MovieProvider = ({ children }) => {
         await updateDoc(entryRef, { classes: newClasses });
     };
 
+    const toggleKidsLiked = async (id, currentStatus) => {
+        const movieRef = doc(db, 'movies', id);
+        await updateDoc(movieRef, { kidsLiked: !currentStatus });
+    };
+
     return (
         <MovieContext.Provider
             value={{
@@ -175,6 +180,7 @@ export const MovieProvider = ({ children }) => {
                 addToSchedule,
                 removeFromSchedule,
                 updateClasses,
+                toggleKidsLiked,
                 loading
             }}
         >

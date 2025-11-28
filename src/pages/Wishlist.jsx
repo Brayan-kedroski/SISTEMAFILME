@@ -132,36 +132,17 @@ const Wishlist = () => {
                     )}
 
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
-                        <div>
-                            <h3 className="font-bold text-lg truncate">{movie.title}</h3>
-                            {movie.rating && (
-                                <span className="inline-block px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded mt-1">
-                                    ★ {movie.rating}
-                                </span>
-                            )}
-                            {movie.overview && (
-                                <p className="text-xs text-slate-400 line-clamp-2 mt-1">{movie.overview}</p>
-                            )}
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-2 justify-end">
-                            <button
-                                onClick={() => moveToDownloaded(movie.id)}
-                                className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
-                                title={t('tooltips.markDownloaded')}
-                            >
-                                <Download className="w-5 h-5" />
-                            </button>
-                            <button
-                                onClick={() => removeMovie(movie.id)}
-                                className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
-                                title={t('tooltips.remove')}
-                            >
-                                <Trash2 className="w-5 h-5" />
-                            </button>
-                        </div>
-                    </div>
+                    </button>
+                    <button
+                        onClick={() => removeMovie(movie.id)}
+                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
+                        title={t('tooltips.remove')}
+                    >
+                        <Trash2 className="w-5 h-5" />
+                    </button>
                 </div>
+                    </div >
+                </div >
             ))
         )
     }
