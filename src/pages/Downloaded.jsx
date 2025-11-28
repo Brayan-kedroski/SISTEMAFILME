@@ -5,10 +5,8 @@ import { Trash2 } from 'lucide-react';
 import { getPosterUrl } from '../services/tmdb';
 import clsx from 'clsx';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 const Downloaded = () => {
-    const { movies, toggleDay, removeMovie } = useMovies();
+    const { movies, removeMovie } = useMovies();
     const { t } = useLanguage();
     const downloadedMovies = movies.filter((m) => m.status === 'downloaded');
 
@@ -62,32 +60,6 @@ const Downloaded = () => {
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>
-                                </div>
-
-                                <div className="space-y-2 pt-2 border-t border-slate-700/50">
-                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider">
-                                        {t('watchedOn')}
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {DAYS.map((day) => {
-                                            const isWatched = movie.watchedDays.includes(day);
-                                            return (
-                                                <button
-                                                    key={day}
-                                                    onClick={() => toggleDay(movie.id, day)}
-                                                    disabled={isWatched}
-                                                    className={clsx(
-                                                        'px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-300 border',
-                                                        isWatched
-                                                            ? 'bg-slate-900/50 border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
-                                                            : 'bg-slate-700/30 border-slate-600 text-slate-300 hover:bg-emerald-500/20 hover:border-emerald-500/50 hover:text-emerald-400'
-                                                    )}
-                                                >
-                                                    {t(`days.${day}`)}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
                                 </div>
                             </div>
                         </div>

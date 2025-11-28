@@ -25,7 +25,18 @@ const Wishlist = () => {
         if (!query.trim()) return;
 
         setIsSearching(true);
-        const results = await searchMovies(query, language === 'pt' ? 'pt-BR' : language === 'ja' ? 'ja-JP' : 'pl-PL');
+        const getTmdbLanguage = (lang) => {
+            switch (lang) {
+                case 'pt': return 'pt-BR';
+                case 'ja': return 'ja-JP';
+                case 'pl': return 'pl-PL';
+                case 'es': return 'es-ES';
+                case 'en': return 'en-US';
+                default: return 'pt-BR';
+            }
+        };
+
+        const results = await searchMovies(query, getTmdbLanguage(language));
         setSearchResults(results);
         setIsSearching(false);
     };

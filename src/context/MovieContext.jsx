@@ -11,15 +11,25 @@ export const MovieProvider = ({ children }) => {
         return saved ? JSON.parse(saved) : [];
     });
 
+    const [schedule, setSchedule] = useState(() => {
+        const saved = localStorage.getItem('schedule');
+        return saved ? JSON.parse(saved) : {
+            Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
+        };
+    });
+
     useEffect(() => {
         localStorage.setItem('movies', JSON.stringify(movies));
     }, [movies]);
+
+    useEffect(() => {
+        localStorage.setItem('schedule', JSON.stringify(schedule));
+    }, [schedule]);
 
     const addMovie = (movieOrList) => {
         const moviesToAdd = Array.isArray(movieOrList) ? movieOrList : [movieOrList];
 
         const newMovies = moviesToAdd.map(m => {
-            // Handle both string (old way) and object (new way)
             const title = typeof m === 'string' ? m : m.title;
             const details = typeof m === 'object' ? m : {};
 
@@ -27,7 +37,6 @@ export const MovieProvider = ({ children }) => {
                 id: uuidv4(),
                 title,
                 status: 'wishlist',
-                watchedDays: [],
                 rating: details.rating || '',
                 overview: details.overview || '',
                 poster_path: details.poster_path || '',
@@ -46,28 +55,65 @@ export const MovieProvider = ({ children }) => {
         );
     };
 
-    const toggleDay = (id, day) => {
-        setMovies((prev) =>
-            prev.map((movie) => {
-                if (movie.id === id) {
-                    const isWatched = movie.watchedDays.includes(day);
-                    const newWatchedDays = isWatched
-                        ? movie.watchedDays.filter((d) => d !== day)
-                        : [...movie.watchedDays, day];
-                    return { ...movie, watchedDays: newWatchedDays };
-                }
-                return movie;
-            })
-        );
-    };
-
     const removeMovie = (id) => {
         setMovies((prev) => prev.filter((movie) => movie.id !== id));
+        // Also remove from schedule
+        setSchedule(prev => {
+            const next = { ...prev };
+            Object.keys(next).forEach(day => {
+                next[day] = next[day].filter(entry => entry.movieId !== id);
+            });
+            return next;
+        });
+    };
+
+    // Schedule Actions
+    const addToSchedule = (day, movieId, classes = '') => {
+        const movie = movies.find(m => m.id === movieId);
+        if (!movie) return;
+
+        const newEntry = {
+            id: uuidv4(),
+            movieId,
+            title: movie.title,
+            poster_path: movie.poster_path,
+            classes
+        };
+
+        setSchedule(prev => ({
+            ...prev,
+            [day]: [...prev[day], newEntry]
+        }));
+    };
+
+    const removeFromSchedule = (day, entryId) => {
+        setSchedule(prev => ({
+            ...prev,
+            [day]: prev[day].filter(entry => entry.id !== entryId)
+        }));
+    };
+
+    const updateClasses = (day, entryId, newClasses) => {
+        setSchedule(prev => ({
+            ...prev,
+            [day]: prev[day].map(entry =>
+                entry.id === entryId ? { ...entry, classes: newClasses } : entry
+            )
+        }));
     };
 
     return (
         <MovieContext.Provider
-            value={{ movies, addMovie, moveToDownloaded, toggleDay, removeMovie }}
+            value={{
+                movies,
+                schedule,
+                addMovie,
+                moveToDownloaded,
+                removeMovie,
+                addToSchedule,
+                removeFromSchedule,
+                updateClasses
+            }}
         >
             {children}
         </MovieContext.Provider>
