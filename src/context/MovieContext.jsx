@@ -101,79 +101,52 @@ export const MovieProvider = ({ children }) => {
             // localStorage.removeItem('schedule');
         };
 
-        migrateData();
-    }, []);
+        const removeMovie = async (id) => {
+            await deleteDoc(doc(db, 'movies', id));
 
-    const addMovie = async (movieOrList) => {
-        const moviesToAdd = Array.isArray(movieOrList) ? movieOrList : [movieOrList];
+            // Also remove from schedule
+            // Note: In a real app, you might want to query for schedule items with this movieId
+            // For now, we rely on the user removing them manually or a cloud function
+        };
 
-        for (const m of moviesToAdd) {
-            const title = typeof m === 'string' ? m : m.title;
-            const details = typeof m === 'object' ? m : {};
+        // Schedule Actions
+        const addToSchedule = async (day, movieId, classes = '') => {
+            const movie = movies.find(m => m.id === movieId);
+            if (!movie) return;
 
-            await addDoc(collection(db, 'movies'), {
-                title,
-                status: 'wishlist',
-                rating: details.rating || '',
-                overview: details.overview || '',
-                poster_path: details.poster_path || '',
-                release_date: details.release_date || '',
-                createdAt: new Date().toISOString()
+            await addDoc(collection(db, 'schedule'), {
+                day,
+                movieId,
+                title: movie.title,
+                poster_path: movie.poster_path || '',
+                classes
             });
-        }
+        };
+
+        const removeFromSchedule = async (day, entryId) => {
+            await deleteDoc(doc(db, 'schedule', entryId));
+        };
+
+        const updateClasses = async (day, entryId, newClasses) => {
+            const entryRef = doc(db, 'schedule', entryId);
+            await updateDoc(entryRef, { classes: newClasses });
+        };
+
+        return (
+            <MovieContext.Provider
+                value={{
+                    movies,
+                    schedule,
+                    addMovie,
+                    moveToDownloaded,
+                    removeMovie,
+                    addToSchedule,
+                    removeFromSchedule,
+                    updateClasses,
+                    loading
+                }}
+            >
+                {children}
+            </MovieContext.Provider>
+        );
     };
-
-    const moveToDownloaded = async (id) => {
-        const movieRef = doc(db, 'movies', id);
-        await updateDoc(movieRef, { status: 'downloaded' });
-    };
-
-    const removeMovie = async (id) => {
-        await deleteDoc(doc(db, 'movies', id));
-
-        // Also remove from schedule
-        // Note: In a real app, you might want to query for schedule items with this movieId
-        // For now, we rely on the user removing them manually or a cloud function
-    };
-
-    // Schedule Actions
-    const addToSchedule = async (day, movieId, classes = '') => {
-        const movie = movies.find(m => m.id === movieId);
-        if (!movie) return;
-
-        await addDoc(collection(db, 'schedule'), {
-            day,
-            movieId,
-            title: movie.title,
-            poster_path: movie.poster_path || '',
-            classes
-        });
-    };
-
-    const removeFromSchedule = async (day, entryId) => {
-        await deleteDoc(doc(db, 'schedule', entryId));
-    };
-
-    const updateClasses = async (day, entryId, newClasses) => {
-        const entryRef = doc(db, 'schedule', entryId);
-        await updateDoc(entryRef, { classes: newClasses });
-    };
-
-    return (
-        <MovieContext.Provider
-            value={{
-                movies,
-                schedule,
-                addMovie,
-                moveToDownloaded,
-                removeMovie,
-                addToSchedule,
-                removeFromSchedule,
-                updateClasses,
-                loading
-            }}
-        >
-            {children}
-        </MovieContext.Provider>
-    );
-};
