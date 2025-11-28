@@ -1,105 +1,162 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { db } from '../services/firebase';
+import {
+    collection,
+    addDoc,
+    deleteDoc,
+    doc,
+    updateDoc,
+    onSnapshot,
+    query,
+    getDocs,
+    writeBatch
+} from 'firebase/firestore';
 
 const MovieContext = createContext();
 
 export const useMovies = () => useContext(MovieContext);
 
 export const MovieProvider = ({ children }) => {
-    const [movies, setMovies] = useState(() => {
-        const saved = localStorage.getItem('movies');
-        return saved ? JSON.parse(saved) : [];
+    const [movies, setMovies] = useState([]);
+    const [schedule, setSchedule] = useState({
+        Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
     });
+    const [loading, setLoading] = useState(true);
 
-    const [schedule, setSchedule] = useState(() => {
-        const saved = localStorage.getItem('schedule');
-        return saved ? JSON.parse(saved) : {
-            Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
+    // Real-time sync for Movies
+    useEffect(() => {
+        const q = query(collection(db, 'movies'));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const moviesData = querySnapshot.docs.map(doc => ({
+                ...doc.data(),
+                id: doc.id // Use Firestore ID
+            }));
+            setMovies(moviesData);
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Real-time sync for Schedule
+    useEffect(() => {
+        const q = query(collection(db, 'schedule'));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const scheduleData = {
+                Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
+            };
+
+            querySnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (scheduleData[data.day]) {
+                    scheduleData[data.day].push({ ...data, id: doc.id });
+                }
+            });
+            setSchedule(scheduleData);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // Migration Logic (LocalStorage -> Firestore)
+    useEffect(() => {
+        const migrateData = async () => {
+            // Check if Firestore is empty
+            const moviesSnapshot = await getDocs(collection(db, 'movies'));
+            if (!moviesSnapshot.empty) return; // Already has data, don't migrate
+
+            const localMovies = JSON.parse(localStorage.getItem('movies') || '[]');
+            const localSchedule = JSON.parse(localStorage.getItem('schedule') || '{}');
+
+            if (localMovies.length === 0 && Object.keys(localSchedule).length === 0) return;
+
+            console.log('Migrating data to Firestore...');
+            const batch = writeBatch(db);
+
+            // Migrate Movies
+            localMovies.forEach(movie => {
+                const docRef = doc(collection(db, 'movies'));
+                // Ensure no undefined values
+                const cleanMovie = JSON.parse(JSON.stringify(movie));
+                delete cleanMovie.id; // Let Firestore generate ID
+                batch.set(docRef, cleanMovie);
+            });
+
+            // Migrate Schedule
+            Object.entries(localSchedule).forEach(([day, entries]) => {
+                if (Array.isArray(entries)) {
+                    entries.forEach(entry => {
+                        const docRef = doc(collection(db, 'schedule'));
+                        const cleanEntry = { ...entry, day };
+                        delete cleanEntry.id;
+                        batch.set(docRef, cleanEntry);
+                    });
+                }
+            });
+
+            await batch.commit();
+            console.log('Migration complete!');
+
+            // Optional: Clear local storage after successful migration
+            // localStorage.removeItem('movies');
+            // localStorage.removeItem('schedule');
         };
-    });
 
-    useEffect(() => {
-        localStorage.setItem('movies', JSON.stringify(movies));
-    }, [movies]);
+        migrateData();
+    }, []);
 
-    useEffect(() => {
-        localStorage.setItem('schedule', JSON.stringify(schedule));
-    }, [schedule]);
-
-    const addMovie = (movieOrList) => {
+    const addMovie = async (movieOrList) => {
         const moviesToAdd = Array.isArray(movieOrList) ? movieOrList : [movieOrList];
 
-        const newMovies = moviesToAdd.map(m => {
+        for (const m of moviesToAdd) {
             const title = typeof m === 'string' ? m : m.title;
             const details = typeof m === 'object' ? m : {};
 
-            return {
-                id: uuidv4(),
+            await addDoc(collection(db, 'movies'), {
                 title,
                 status: 'wishlist',
                 rating: details.rating || '',
                 overview: details.overview || '',
                 poster_path: details.poster_path || '',
                 release_date: details.release_date || '',
-            };
-        });
-
-        setMovies((prev) => [...prev, ...newMovies]);
-    };
-
-    const moveToDownloaded = (id) => {
-        setMovies((prev) =>
-            prev.map((movie) =>
-                movie.id === id ? { ...movie, status: 'downloaded' } : movie
-            )
-        );
-    };
-
-    const removeMovie = (id) => {
-        setMovies((prev) => prev.filter((movie) => movie.id !== id));
-        // Also remove from schedule
-        setSchedule(prev => {
-            const next = { ...prev };
-            Object.keys(next).forEach(day => {
-                next[day] = next[day].filter(entry => entry.movieId !== id);
+                createdAt: new Date().toISOString()
             });
-            return next;
-        });
+        }
+    };
+
+    const moveToDownloaded = async (id) => {
+        const movieRef = doc(db, 'movies', id);
+        await updateDoc(movieRef, { status: 'downloaded' });
+    };
+
+    const removeMovie = async (id) => {
+        await deleteDoc(doc(db, 'movies', id));
+
+        // Also remove from schedule
+        // Note: In a real app, you might want to query for schedule items with this movieId
+        // For now, we rely on the user removing them manually or a cloud function
     };
 
     // Schedule Actions
-    const addToSchedule = (day, movieId, classes = '') => {
+    const addToSchedule = async (day, movieId, classes = '') => {
         const movie = movies.find(m => m.id === movieId);
         if (!movie) return;
 
-        const newEntry = {
-            id: uuidv4(),
+        await addDoc(collection(db, 'schedule'), {
+            day,
             movieId,
             title: movie.title,
-            poster_path: movie.poster_path,
+            poster_path: movie.poster_path || '',
             classes
-        };
-
-        setSchedule(prev => ({
-            ...prev,
-            [day]: [...prev[day], newEntry]
-        }));
+        });
     };
 
-    const removeFromSchedule = (day, entryId) => {
-        setSchedule(prev => ({
-            ...prev,
-            [day]: prev[day].filter(entry => entry.id !== entryId)
-        }));
+    const removeFromSchedule = async (day, entryId) => {
+        await deleteDoc(doc(db, 'schedule', entryId));
     };
 
-    const updateClasses = (day, entryId, newClasses) => {
-        setSchedule(prev => ({
-            ...prev,
-            [day]: prev[day].map(entry =>
-                entry.id === entryId ? { ...entry, classes: newClasses } : entry
-            )
-        }));
+    const updateClasses = async (day, entryId, newClasses) => {
+        const entryRef = doc(db, 'schedule', entryId);
+        await updateDoc(entryRef, { classes: newClasses });
     };
 
     return (
@@ -112,7 +169,8 @@ export const MovieProvider = ({ children }) => {
                 removeMovie,
                 addToSchedule,
                 removeFromSchedule,
-                updateClasses
+                updateClasses,
+                loading
             }}
         >
             {children}
