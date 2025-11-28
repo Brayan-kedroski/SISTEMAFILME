@@ -1,4 +1,3 @@
-```javascript
 import React from 'react';
 import { useMovies } from '../context/MovieContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -62,10 +61,10 @@ const Downloaded = () => {
                                 <div className="flex items-center gap-2 mt-3 justify-end">
                                     <button
                                         onClick={() => toggleKidsLiked(movie.id, movie.kidsLiked)}
-                                        className={`p - 2 rounded - full transition - colors ${ movie.kidsLiked ? 'text-pink-500 bg-pink-500/10' : 'text-slate-500 hover:text-pink-400 hover:bg-pink-500/10' } `}
+                                        className={`p-2 rounded-full transition-colors ${movie.kidsLiked ? 'text-pink-500 bg-pink-500/10' : 'text-slate-500 hover:text-pink-400 hover:bg-pink-500/10'}`}
                                         title={movie.kidsLiked ? "Kids Liked!" : "Did kids like it?"}
                                     >
-                                        <Heart className={`w - 5 h - 5 ${ movie.kidsLiked ? 'fill-current' : '' } `} />
+                                        <Heart className={`w-5 h-5 ${movie.kidsLiked ? 'fill-current' : ''}`} />
                                     </button>
                                     <button
                                         onClick={() => removeMovie(movie.id)}
@@ -85,4 +84,3 @@ const Downloaded = () => {
 };
 
 export default Downloaded;
-```
