@@ -9,6 +9,132 @@ const Wishlist = () => {
     const { movies, addMovie, moveToDownloaded, removeMovie } = useMovies();
     const { t, language } = useLanguage();
 
+    const [mode, setMode] = useState('single'); // 'single' | 'batch'
+    const [query, setQuery] = useState('');
+    const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    // Batch state
+    const [batchInput, setBatchInput] = useState('');
+    const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+    const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+
+    // Manual entry fields
+    const [manualTitle, setManualTitle] = useState('');
+    const [manualRating, setManualRating] = useState('');
+    const [manualOverview, setManualOverview] = useState('');
+
+    const getTmdbLanguage = (lang) => {
+        switch (lang) {
+            case 'pt': return 'pt-BR';
+            case 'ja': return 'ja-JP';
+            case 'pl': return 'pl-PL';
+            case 'es': return 'es-ES';
+            case 'en': return 'en-US';
+            default: return 'pt-BR';
+        }
+    };
+
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        if (!query.trim()) return;
+
+        setIsSearching(true);
+        const results = await searchMovies(query, getTmdbLanguage(language));
+        setSearchResults(results);
+        setIsSearching(false);
+    };
+
+    const handleAddFromSearch = async (movie) => {
+        const result = await addMovie({
+            title: movie.title,
+            overview: movie.overview,
+            rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
+            poster_path: movie.poster_path,
+            release_date: movie.release_date
+        });
+
+        if (result.skipped.length > 0) {
+            alert(t('duplicateWarning') || `Movie already exists: ${result.skipped[0]}`);
+        }
+
+        setSearchResults([]);
+        setQuery('');
+    };
+
+    const handleManualSubmit = async (e) => {
+        e.preventDefault();
+        if (manualTitle.trim()) {
+            const result = await addMovie({
+                title: manualTitle.trim(),
+                rating: manualRating,
+                overview: manualOverview
+            });
+
+            if (result.skipped.length > 0) {
+                alert(t('duplicateWarning') || `Movie already exists: ${result.skipped[0]}`);
+            } else {
+                setManualTitle('');
+                setManualRating('');
+                setManualOverview('');
+            }
+        }
+    };
+
+    const handleBatchSubmit = async (e) => {
+        e.preventDefault();
+        if (batchInput.trim()) {
+            const titles = batchInput.split('\n').filter(line => line.trim());
+            if (titles.length === 0) return;
+
+            setIsProcessingBatch(true);
+            setBatchProgress({ current: 0, total: titles.length });
+
+            const moviesToAdd = [];
+
+            for (let i = 0; i < titles.length; i++) {
+                const title = titles[i];
+                // Update progress
+                setBatchProgress(prev => ({ ...prev, current: i + 1 }));
+
+                // Small delay to be nice to the API and allow UI to update
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                try {
+                    const results = await searchMovies(title, getTmdbLanguage(language));
+
+                    if (results && results.length > 0) {
+                        const movie = results[0];
+                        moviesToAdd.push({
+                            title: movie.title,
+                            overview: movie.overview,
+                            rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
+                            poster_path: movie.poster_path,
+                            release_date: movie.release_date
+                        });
+                    } else {
+                        moviesToAdd.push({ title });
+                    }
+                } catch (error) {
+                    console.error(`Error fetching ${title}:`, error);
+                    moviesToAdd.push({ title }); // Fallback on error
+                }
+            }
+
+            const result = await addMovie(moviesToAdd);
+
+            if (result.skipped.length > 0) {
+                alert(`${t('batchComplete') || 'Batch complete'}.\n${t('skippedDuplicates') || 'Skipped duplicates'}: ${result.skipped.length}\n(${result.skipped.join(', ')})`);
+            }
+
+            setBatchInput('');
+            setIsProcessingBatch(false);
+            setBatchProgress({ current: 0, total: 0 });
+        }
+    };
+
+    const wishlistMovies = movies.filter((m) => m.status === 'wishlist');
+
     return (
         <div className="space-y-8">
             <header className="text-center space-y-2">
