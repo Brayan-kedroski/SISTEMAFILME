@@ -1,4 +1,4 @@
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY || 'YOUR_API_KEY_HERE'; // Placeholder
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY || 'dabffb875f052e64b3bb23eb30fc5fd7';
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 export const searchMovies = async (query, language = 'pt-BR') => {
