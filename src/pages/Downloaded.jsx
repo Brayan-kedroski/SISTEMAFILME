@@ -19,7 +19,7 @@ const Downloaded = () => {
                 <p className="text-slate-400">{t('downloadedSubtitle')}</p>
             </header>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {downloadedMovies.length === 0 ? (
                     <div className="col-span-full text-center py-12 text-slate-500">
                         {t('noDownloaded')}

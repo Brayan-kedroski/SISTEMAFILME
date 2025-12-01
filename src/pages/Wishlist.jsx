@@ -246,20 +246,20 @@ const Wishlist = () => {
                                 placeholder={t('placeholder')}
                                 className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none"
                             />
-                            <div className="flex gap-2">
+                            <div className="flex flex-col md:flex-row gap-2">
                                 <input
                                     type="text"
                                     value={manualRating}
                                     onChange={(e) => setManualRating(e.target.value)}
                                     placeholder={t('rating')}
-                                    className="w-1/3 px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none"
+                                    className="w-full md:w-1/3 px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none"
                                 />
                                 <input
                                     type="text"
                                     value={manualOverview}
                                     onChange={(e) => setManualOverview(e.target.value)}
                                     placeholder={t('details')}
-                                    className="flex-1 px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none"
+                                    className="w-full md:flex-1 px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-pink-500 focus:outline-none"
                                 />
                             </div>
                             <button

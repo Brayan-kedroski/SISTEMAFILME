@@ -32,15 +32,15 @@ const Schedule = () => {
             </header>
 
             {/* Day Selector */}
-            <div className="flex overflow-x-auto pb-4 gap-2 md:justify-center custom-scrollbar">
+            <div className="flex overflow-x-auto pb-4 gap-2 md:justify-center custom-scrollbar snap-x snap-mandatory px-4 md:px-0">
                 {DAYS.map(day => (
                     <button
                         key={day}
                         onClick={() => setSelectedDay(day)}
                         className={clsx(
-                            "px-4 py-2 rounded-full font-bold whitespace-nowrap transition-all",
+                            "px-4 py-2 rounded-full font-bold whitespace-nowrap transition-all snap-center flex-shrink-0",
                             selectedDay === day
-                                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25"
+                                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25 scale-105"
                                 : "bg-slate-800 text-slate-400 hover:bg-slate-700"
                         )}
                     >
