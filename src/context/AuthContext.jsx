@@ -117,8 +117,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         googleSignIn,
         sendMagicLink,
-        googleSignIn,
-        sendMagicLink,
+
         completeMagicLinkSignIn,
         resetPassword
     };

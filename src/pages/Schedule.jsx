@@ -34,10 +34,10 @@ const Schedule = () => {
     return (
         <div className="space-y-8 print:space-y-4">
             <header className="text-center space-y-2 print:hidden">
-                <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                <h1 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg">
                     {t('scheduleTitle')}
                 </h1>
-                <p className="text-slate-400">{t('scheduleSubtitle')}</p>
+                <p className="text-gray-200 font-medium">{t('scheduleSubtitle')}</p>
             </header>
 
             {/* Print Header */}
@@ -54,8 +54,8 @@ const Schedule = () => {
                         className={clsx(
                             "px-4 py-2 rounded-full font-bold whitespace-nowrap transition-all snap-center flex-shrink-0",
                             selectedDay === day
-                                ? "bg-blue-500 text-white shadow-lg shadow-blue-500/25 scale-105"
-                                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                ? "bg-blood-600 text-white shadow-lg shadow-blood-600/25 scale-105"
+                                : "bg-blood-900/50 text-gray-300 hover:bg-blood-800 hover:text-white border border-blood-800"
                         )}
                     >
                         {t(`days.${day}`)}
@@ -67,7 +67,7 @@ const Schedule = () => {
             <div className="flex justify-end print:hidden">
                 <button
                     onClick={handlePrint}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-blood-800 hover:bg-blood-700 text-white rounded-lg transition-colors border border-blood-700"
                 >
                     <Printer className="w-4 h-4" />
                     {t('print') || 'Print'}
@@ -80,7 +80,7 @@ const Schedule = () => {
                     <h2 className="text-2xl font-bold capitalize text-white">{t(`days.${selectedDay}`)}</h2>
                     <button
                         onClick={() => setIsAdding(!isAdding)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blood-600 hover:bg-blood-500 text-white rounded-lg transition-colors shadow-md"
                     >
                         <Plus className="w-4 h-4" />
                         {t('add')}
@@ -114,11 +114,11 @@ const Schedule = () => {
                 {/* Screen View: Selected Day */}
                 <div className="print:hidden space-y-4">
                     {isAdding && (
-                        <form onSubmit={handleAdd} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 space-y-4 animate-in fade-in slide-in-from-top-4">
+                        <form onSubmit={handleAdd} className="bg-blood-900/50 p-4 rounded-xl border border-blood-800 space-y-4 animate-in fade-in slide-in-from-top-4">
                             <select
                                 value={selectedMovieId}
                                 onChange={(e) => setSelectedMovieId(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                className="w-full px-4 py-2 rounded-lg bg-blood-950 border border-blood-700 focus:border-blood-500 focus:outline-none text-white"
                                 required
                             >
                                 <option value="">{t('selectMovie')}</option>
@@ -131,20 +131,20 @@ const Schedule = () => {
                                 value={classInput}
                                 onChange={(e) => setClassInput(e.target.value)}
                                 placeholder={t('classPlaceholder')}
-                                className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                className="w-full px-4 py-2 rounded-lg bg-blood-950 border border-blood-700 focus:border-blood-500 focus:outline-none text-white"
                                 required
                             />
                             <div className="flex justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setIsAdding(false)}
-                                    className="px-4 py-2 text-slate-400 hover:text-white"
+                                    className="px-4 py-2 text-gray-400 hover:text-white"
                                 >
                                     {t('cancel')}
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                                    className="px-4 py-2 bg-blood-600 hover:bg-blood-500 text-white rounded-lg"
                                 >
                                     {t('save')}
                                 </button>
@@ -153,7 +153,7 @@ const Schedule = () => {
                     )}
 
                     {currentSchedule.length === 0 ? (
-                        <div className="text-center py-12 text-slate-500 bg-slate-800/30 rounded-xl border border-dashed border-slate-700">
+                        <div className="text-center py-12 text-gray-400 bg-blood-900/20 rounded-xl border border-dashed border-blood-800">
                             {t('noSchedule')}
                         </div>
                     ) : (
@@ -162,21 +162,21 @@ const Schedule = () => {
                             if (!movie) return null;
 
                             return (
-                                <div key={item.id} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 flex flex-col md:flex-row gap-4 items-start md:items-center group hover:border-slate-600 transition-all">
+                                <div key={item.id} className="bg-blood-900/40 p-4 rounded-xl border border-blood-800 flex flex-col md:flex-row gap-4 items-start md:items-center group hover:border-blood-600 transition-all hover:shadow-lg hover:shadow-blood-900/20">
                                     {movie.poster_path && (
                                         <img src={getPosterUrl(movie.poster_path, 'w92')} alt={movie.title} className="w-12 h-16 object-cover rounded hidden md:block" />
                                     )}
                                     <div className="flex-1">
-                                        <h4 className="font-bold text-lg">{movie.title}</h4>
-                                        <div className="flex items-center gap-2 text-slate-400 text-sm">
-                                            <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded">
+                                        <h4 className="font-bold text-lg text-white">{movie.title}</h4>
+                                        <div className="flex items-center gap-2 text-gray-300 text-sm">
+                                            <span className="bg-blood-500/20 text-blood-300 px-2 py-0.5 rounded border border-blood-500/30">
                                                 {item.class}
                                             </span>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => removeFromSchedule(selectedDay, item.id)}
-                                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
                                     >
                                         <Trash2 className="w-5 h-5" />
                                     </button>

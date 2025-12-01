@@ -16,65 +16,89 @@ import Suggestions from './pages/Suggestions';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import Landing from './pages/Landing';
+
+import LanguageSwitcher from './components/LanguageSwitcher';
 
 function App() {
   return (
     <AuthProvider>
-      <MovieProvider>
-        <LanguageProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/first-access" element={<FirstAccess />} />
-              <Route path="/" element={
-                <PrivateRoute>
-                  <Layout>
-                    <Wishlist />
-                  </Layout>
-                </PrivateRoute>
-              } />
-              <Route path="/downloaded" element={
-                <PrivateRoute>
-                  <Layout>
-                    <Downloaded />
-                  </Layout>
-                </PrivateRoute>
-              } />
-              <Route path="/schedule" element={
-                <PrivateRoute>
-                  <Layout>
-                    <Schedule />
-                  </Layout>
-                </PrivateRoute>
-              } />
-              <Route path="/stats" element={
-                <PrivateRoute>
-                  <Layout>
-                    <Stats />
-                  </Layout>
-                </PrivateRoute>
-              } />
-              <Route path="/admin" element={
-                <AdminRoute>
-                  <Layout>
-                    <AdminDashboard />
-                  </Layout>
-                </AdminRoute>
-              } />
-              <Route path="/suggestions" element={
-                <PrivateRoute>
-                  <Layout>
-                    <Suggestions />
-                  </Layout>
-                </PrivateRoute>
-              } />
-            </Routes>
-          </Router>
-        </LanguageProvider>
-      </MovieProvider>
+      <LanguageProvider>
+        <MovieProvider>
+          <ThemeProvider>
+            <Router>
+              <LanguageSwitcher />
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route
+                  path="/wishlist"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Wishlist />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/downloaded"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Downloaded />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/schedule"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Schedule />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/stats"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <Stats />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/suggestions"
+                  element={
+                    <Layout>
+                      <Suggestions />
+                    </Layout>
+                  }
+                />
+                <Route
+                  path="/admin"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <AdminDashboard />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+                <Route path="/register" element={<Register />} />
+                <Route path="/first-access" element={<FirstAccess />} />
+                <Route path="/login" element={<Login />} />
+              </Routes>
+            </Router>
+          </ThemeProvider>
+        </MovieProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
-}
+};
 
 export default App;

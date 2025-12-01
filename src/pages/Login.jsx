@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Film, Lock, Mail, Chrome, Wand2, Globe } from 'lucide-react';
+import { Film, Lock, Mail, Chrome, Wand2 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import clsx from 'clsx';
 
@@ -139,8 +139,8 @@ const Login = () => {
                         className={clsx(
                             "px-3 py-1.5 rounded-full text-sm font-bold transition-all border",
                             language === lang.code
-                                ? "bg-pink-500 border-pink-500 text-white shadow-lg shadow-pink-500/25"
-                                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-white"
+                                ? "bg-blue-600 border-blue-600 text-white shadow-lg shadow-blue-600/25"
+                                : "bg-slate-800 border-slate-700 text-gray-400 hover:border-blue-600 hover:text-white"
                         )}
                     >
                         {lang.label}
@@ -148,15 +148,15 @@ const Login = () => {
                 ))}
             </div>
 
-            <div className="max-w-md w-full bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-3xl p-8 shadow-2xl">
+            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
-                        <Film className="w-12 h-12 text-pink-500" />
+                        <Film className="w-12 h-12 text-blue-500" />
                     </div>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
+                    <h2 className="text-3xl font-bold text-white">
                         {t('loginWelcome') || 'Welcome Back'}
                     </h2>
-                    <p className="text-slate-400 mt-2">{t('loginSubtitle') || "Login to manage your kids' movies"}</p>
+                    <p className="text-gray-400 mt-2">{t('loginSubtitle') || "Login to manage your kids' movies"}</p>
                 </div>
 
                 {error && (
@@ -165,7 +165,7 @@ const Login = () => {
                         {(error.includes('Too many attempts') || error.includes('Muitas tentativas')) && (
                             <button
                                 onClick={handleMagicLink}
-                                className="mt-2 text-white underline font-bold hover:text-pink-400"
+                                className="mt-2 text-white underline font-bold hover:text-blue-400"
                             >
                                 {t('tryMagicLink') || 'Try Magic Link instead'}
                             </button>
@@ -181,14 +181,14 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">{t('emailLabel') || 'Email'}</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">{t('emailLabel') || 'Email'}</label>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+                            <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-pink-500 focus:outline-none text-white transition-colors"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
                                 placeholder={t('emailPlaceholder') || "Enter your email"}
                                 required
                             />
@@ -196,14 +196,14 @@ const Login = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">{t('passwordLabel') || 'Password'}</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">{t('passwordLabel') || 'Password'}</label>
                         <div className="relative">
-                            <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+                            <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-pink-500 focus:outline-none text-white transition-colors"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
                                 placeholder={t('passwordPlaceholder') || "Enter your password"}
                                 required
                             />
@@ -212,7 +212,7 @@ const Login = () => {
                             <button
                                 type="button"
                                 onClick={handleResetPassword}
-                                className="text-xs text-pink-400 hover:text-pink-300"
+                                className="text-xs text-blue-400 hover:text-blue-300"
                             >
                                 {t('forgotPassword') || 'Forgot Password?'}
                             </button>
@@ -222,7 +222,7 @@ const Login = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                     >
                         {loading ? (t('loggingIn') || 'Logging in...') : (t('loginButton') || 'Login')}
                     </button>
@@ -230,7 +230,7 @@ const Login = () => {
 
                 <div className="relative flex py-5 items-center">
                     <div className="flex-grow border-t border-slate-700"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase font-bold">{t('orContinue') || 'Or continue with'}</span>
+                    <span className="flex-shrink-0 mx-4 text-gray-500 text-xs uppercase font-bold">{t('orContinue') || 'Or continue with'}</span>
                     <div className="flex-grow border-t border-slate-700"></div>
                 </div>
 
@@ -238,7 +238,7 @@ const Login = () => {
                     <button
                         onClick={handleGoogleSignIn}
                         disabled={loading}
-                        className="flex items-center justify-center gap-2 py-2.5 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50"
+                        className="flex items-center justify-center gap-2 py-2.5 bg-white text-black font-bold rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
                     >
                         <Chrome className="w-5 h-5" />
                         {t('googleLogin') || 'Google'}
@@ -247,7 +247,7 @@ const Login = () => {
                         to="/first-access"
                         className="flex items-center justify-center gap-2 py-2.5 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 transition-colors"
                     >
-                        <Wand2 className="w-5 h-5 text-purple-400" />
+                        <Wand2 className="w-5 h-5 text-blue-400" />
                         {t('firstAccess') || 'First Access?'}
                     </Link>
                 </div>
@@ -256,11 +256,10 @@ const Login = () => {
                     <button
                         onClick={handleMagicLink}
                         disabled={loading || !email}
-                        className="text-sm text-slate-400 hover:text-white underline"
+                        className="text-sm text-gray-400 hover:text-white underline"
                     >
                         {t('magicLink') || 'Or sign in with Magic Link (Email only)'}
                     </button>
-                    {/* Register link removed as per user request */}
                 </div>
             </div>
         </div>

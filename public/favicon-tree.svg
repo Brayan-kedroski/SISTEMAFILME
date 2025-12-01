@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Tree -->
+  <path d="M256 32L64 352h384L256 32z" fill="#166534"/>
+  <path d="M256 128L96 384h320L256 128z" fill="#15803d"/>
+  <path d="M256 224L128 416h256L256 224z" fill="#16a34a"/>
+  
+  <!-- Trunk -->
+  <rect x="224" y="416" width="64" height="64" fill="#78350f"/>
+  
+  <!-- Star -->
+  <path d="M256 0l18 54h57l-46 34 18 54-47-34-47 34 18-54-46-34h57z" fill="#fbbf24"/>
+</svg>

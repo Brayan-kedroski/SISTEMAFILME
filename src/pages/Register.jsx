@@ -34,15 +34,15 @@ const Register = () => {
 
     return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-            <div className="max-w-md w-full bg-slate-800/50 backdrop-blur-md border border-slate-700 rounded-3xl p-8 shadow-2xl">
+            <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
-                        <Film className="w-12 h-12 text-purple-500" />
+                        <Film className="w-12 h-12 text-blue-500" />
                     </div>
-                    <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                    <h2 className="text-3xl font-bold text-white">
                         Create Account
                     </h2>
-                    <p className="text-slate-400 mt-2">Join KidsFlix today</p>
+                    <p className="text-gray-400 mt-2">Join KidsFlix today</p>
                 </div>
 
                 {error && (
@@ -53,14 +53,14 @@ const Register = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">Email</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">Email</label>
                         <div className="relative">
-                            <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+                            <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-purple-500 focus:outline-none text-white transition-colors"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
                                 placeholder="Enter your email"
                                 required
                             />
@@ -68,14 +68,14 @@ const Register = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">Password</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">Password</label>
                         <div className="relative">
-                            <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+                            <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-purple-500 focus:outline-none text-white transition-colors"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
                                 placeholder="Create a password"
                                 required
                             />
@@ -83,14 +83,14 @@ const Register = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">Confirm Password</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">Confirm Password</label>
                         <div className="relative">
-                            <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
+                            <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
                                 type="password"
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-purple-500 focus:outline-none text-white transition-colors"
+                                className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
                                 placeholder="Confirm your password"
                                 required
                             />
@@ -100,15 +100,15 @@ const Register = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+                        className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                     >
                         {loading ? 'Creating Account...' : 'Sign Up'}
                     </button>
                 </form>
 
-                <div className="mt-6 text-center text-slate-400 text-sm">
+                <div className="mt-6 text-center text-gray-400 text-sm">
                     Already have an account?{' '}
-                    <Link to="/login" className="text-purple-400 hover:text-purple-300 font-bold">
+                    <Link to="/login" className="text-blue-400 hover:text-blue-300 font-bold">
                         Login
                     </Link>
                 </div>

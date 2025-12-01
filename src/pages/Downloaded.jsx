@@ -74,11 +74,11 @@ const Downloaded = () => {
     }, [movies, sortBy, filterLiked]);
 
     return (
-        <div className="space-y-8 relative">
+        <div className="space-y-8 relative min-h-screen">
             {/* Trailer Modal */}
             {trailerUrl && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm animate-in fade-in">
-                    <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+                    <div className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl border border-blood-800">
                         <button
                             onClick={() => setTrailerUrl(null)}
                             className="absolute top-4 right-4 p-2 bg-black/50 text-white rounded-full hover:bg-white/20 transition-colors z-10"
@@ -97,22 +97,22 @@ const Downloaded = () => {
             )}
 
             <header className="text-center space-y-2">
-                <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-emerald-400 to-teal-400 bg-clip-text text-transparent">
+                <h1 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg">
                     {t('downloadedTitle')}
                 </h1>
-                <p className="text-slate-400">{t('downloadedSubtitle')}</p>
+                <p className="text-gray-200 font-medium">{t('downloadedSubtitle')}</p>
             </header>
 
             {/* Filters & Sorting Toolbar */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-blood-900/50 p-4 rounded-2xl border border-blood-800 shadow-lg backdrop-blur-sm">
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm font-bold">
+                    <div className="flex items-center gap-2 text-gray-200 text-sm font-bold">
                         <Filter className="w-4 h-4" />
                         <span>{filteredMovies.length} {t('movies') || 'Movies'}</span>
                     </div>
                     <button
                         onClick={() => setFilterLiked(!filterLiked)}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${filterLiked ? 'bg-pink-500 text-white' : 'bg-slate-700 text-slate-400 hover:bg-slate-600'}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors ${filterLiked ? 'bg-blood-600 text-white shadow-md' : 'bg-blood-800 text-gray-300 hover:bg-blood-700 hover:text-white'}`}
                     >
                         <Heart className={`w-4 h-4 ${filterLiked ? 'fill-current' : ''}`} />
                         {t('kidsLiked') || 'Kids Liked'}
@@ -120,11 +120,11 @@ const Downloaded = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs font-bold uppercase">{t('sortBy') || 'Sort By'}:</span>
+                    <span className="text-gray-300 text-xs font-bold uppercase">{t('sortBy') || 'Sort By'}:</span>
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="bg-slate-900 border border-slate-600 text-slate-300 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2"
+                        className="bg-blood-950 border border-blood-700 text-white text-sm rounded-lg focus:ring-blood-500 focus:border-blood-500 block p-2"
                     >
                         <option value="dateDesc">{t('sortDateNewest') || 'Date (Newest)'}</option>
                         <option value="dateAsc">{t('sortDateOldest') || 'Date (Oldest)'}</option>
@@ -136,20 +136,20 @@ const Downloaded = () => {
 
             <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {filteredMovies.length === 0 ? (
-                    <div className="col-span-full text-center py-12 text-slate-500">
+                    <div className="col-span-full text-center py-12 text-gray-400">
                         {t('noDownloaded')}
                     </div>
                 ) : (
                     filteredMovies.map((movie) => (
                         <div
                             key={movie.id}
-                            className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-4 rounded-2xl flex gap-4 group hover:border-slate-600 transition-all"
+                            className="bg-blood-900/40 backdrop-blur-sm border border-blood-800 p-4 rounded-2xl flex gap-4 group hover:border-blood-600 transition-all hover:shadow-xl hover:shadow-blood-900/20"
                         >
                             <div className="relative flex-shrink-0">
                                 {movie.poster_path ? (
                                     <img src={getPosterUrl(movie.poster_path, 'w92')} alt={movie.title} className="w-20 h-28 object-cover rounded-lg shadow-lg" />
                                 ) : (
-                                    <div className="w-20 h-28 bg-slate-700 rounded-lg flex items-center justify-center text-slate-500">
+                                    <div className="w-20 h-28 bg-blood-800 rounded-lg flex items-center justify-center text-blood-300">
                                         <Film className="w-8 h-8 opacity-50" />
                                     </div>
                                 )}
@@ -163,42 +163,42 @@ const Downloaded = () => {
 
                             <div className="flex-1 min-w-0 flex flex-col justify-between">
                                 <div>
-                                    <h3 className="font-bold text-lg truncate">{movie.title}</h3>
+                                    <h3 className="font-bold text-lg truncate text-white">{movie.title}</h3>
                                     <div className="flex items-center gap-2 mt-1">
                                         {movie.rating && (
-                                            <span className="inline-block px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded">
+                                            <span className="inline-block px-2 py-0.5 bg-yellow-500/20 text-yellow-400 text-xs font-bold rounded border border-yellow-500/30">
                                                 ★ {movie.rating}
                                             </span>
                                         )}
                                         {movie.createdAt && (
-                                            <span className="text-[10px] text-slate-500">
+                                            <span className="text-[10px] text-gray-400">
                                                 {new Date(movie.createdAt).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US')}
                                             </span>
                                         )}
                                     </div>
                                     {movie.overview && (
-                                        <p className="text-xs text-slate-400 line-clamp-2 mt-2">{movie.overview}</p>
+                                        <p className="text-xs text-gray-300 line-clamp-2 mt-2">{movie.overview}</p>
                                     )}
                                 </div>
 
                                 <div className="flex items-center gap-2 mt-3 justify-end">
                                     <button
                                         onClick={() => toggleKidsLiked(movie.id, movie.kidsLiked)}
-                                        className={`p-2 rounded-full transition-colors ${movie.kidsLiked ? 'text-pink-500 bg-pink-500/10' : 'text-slate-500 hover:text-pink-400 hover:bg-pink-500/10'}`}
+                                        className={`p-2 rounded-full transition-colors ${movie.kidsLiked ? 'text-blood-500 bg-blood-500/10' : 'text-gray-400 hover:text-blood-400 hover:bg-blood-500/10'}`}
                                         title={movie.kidsLiked ? "Kids Liked!" : "Did kids like it?"}
                                     >
                                         <Heart className={`w-5 h-5 ${movie.kidsLiked ? 'fill-current' : ''}`} />
                                     </button>
                                     <button
                                         onClick={() => moveToWishlist(movie.id)}
-                                        className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded-full transition-colors"
+                                        className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded-full transition-colors border border-blue-500/30"
                                         title="Move back to Wishlist"
                                     >
                                         <RotateCcw className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={() => removeMovie(movie.id)}
-                                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
+                                        className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors"
                                         title={t('tooltips.remove')}
                                     >
                                         <Trash2 className="w-5 h-5" />

@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    --bg-main: #0f172a;
+    /* slate-900 */
+    --bg-surface: #1e293b;
+    /* slate-800 */
+    --text-primary: #f8fafc;
+    /* slate-50 */
+    --text-secondary: #94a3b8;
+    /* slate-400 */
+    --border: #334155;
+    /* slate-700 */
+    --accent: #3b82f6;
+    /* blue-500 */
+  }
+}
+
 body {
-    @apply bg-slate-900 text-white font-sans;
+  @apply bg-slate-900 text-white font-sans;
 }
