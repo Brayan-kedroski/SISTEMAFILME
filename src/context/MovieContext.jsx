@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 import { db } from '../services/firebase';
 import {
@@ -10,14 +11,17 @@ import {
     onSnapshot,
     query,
     getDocs,
-    writeBatch
+    writeBatch,
+    getDoc
 } from 'firebase/firestore';
+import { getMovieDetails } from '../services/tmdb';
 
 const MovieContext = createContext();
 
 export const useMovies = () => useContext(MovieContext);
 
 export const MovieProvider = ({ children }) => {
+    const { currentUser } = useAuth();
     const [movies, setMovies] = useState([]);
     const [schedule, setSchedule] = useState({
         Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
@@ -26,7 +30,13 @@ export const MovieProvider = ({ children }) => {
 
     // Real-time sync for Movies
     useEffect(() => {
-        const q = query(collection(db, 'movies'));
+        if (!currentUser) {
+            setMovies([]);
+            setLoading(false);
+            return;
+        }
+
+        const q = query(collection(db, `users/${currentUser.uid}/movies`));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const moviesData = querySnapshot.docs.map(doc => ({
                 ...doc.data(),
@@ -36,11 +46,13 @@ export const MovieProvider = ({ children }) => {
             setLoading(false);
         });
         return () => unsubscribe();
-    }, []);
+    }, [currentUser]);
 
     // Real-time sync for Schedule
     useEffect(() => {
-        const q = query(collection(db, 'schedule'));
+        if (!currentUser) return;
+
+        const q = query(collection(db, `users/${currentUser.uid}/schedule`));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const scheduleData = {
                 Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
@@ -55,13 +67,15 @@ export const MovieProvider = ({ children }) => {
             setSchedule(scheduleData);
         });
         return () => unsubscribe();
-    }, []);
+    }, [currentUser]);
 
     // Migration Logic (LocalStorage -> Firestore)
     useEffect(() => {
+        if (!currentUser) return;
+
         const migrateData = async () => {
-            // Check if Firestore is empty
-            const moviesSnapshot = await getDocs(collection(db, 'movies'));
+            // Check if Firestore is empty for this user
+            const moviesSnapshot = await getDocs(collection(db, `users/${currentUser.uid}/movies`));
             if (!moviesSnapshot.empty) return; // Already has data, don't migrate
 
             const localMovies = JSON.parse(localStorage.getItem('movies') || '[]');
@@ -74,7 +88,7 @@ export const MovieProvider = ({ children }) => {
 
             // Migrate Movies
             localMovies.forEach(movie => {
-                const docRef = doc(collection(db, 'movies'));
+                const docRef = doc(collection(db, `users/${currentUser.uid}/movies`));
                 // Ensure no undefined values
                 const cleanMovie = JSON.parse(JSON.stringify(movie));
                 delete cleanMovie.id; // Let Firestore generate ID
@@ -85,7 +99,7 @@ export const MovieProvider = ({ children }) => {
             Object.entries(localSchedule).forEach(([day, entries]) => {
                 if (Array.isArray(entries)) {
                     entries.forEach(entry => {
-                        const docRef = doc(collection(db, 'schedule'));
+                        const docRef = doc(collection(db, `users/${currentUser.uid}/schedule`));
                         const cleanEntry = { ...entry, day };
                         delete cleanEntry.id;
                         batch.set(docRef, cleanEntry);
@@ -98,7 +112,7 @@ export const MovieProvider = ({ children }) => {
         };
 
         migrateData();
-    }, []);
+    }, [currentUser]);
 
     const addMovie = async (movieOrList) => {
         const moviesToAdd = Array.isArray(movieOrList) ? movieOrList : [movieOrList];
@@ -118,13 +132,14 @@ export const MovieProvider = ({ children }) => {
                 continue;
             }
 
-            await addDoc(collection(db, 'movies'), {
+            await addDoc(collection(db, `users/${currentUser.uid}/movies`), {
                 title,
                 status: 'wishlist',
                 rating: details.rating || '',
                 overview: details.overview || '',
                 poster_path: details.poster_path || '',
                 release_date: details.release_date || '',
+                tmdb_id: details.tmdb_id || null,
                 createdAt: new Date().toISOString()
             });
             results.added.push(title);
@@ -133,20 +148,23 @@ export const MovieProvider = ({ children }) => {
     };
 
     const moveToDownloaded = async (id) => {
-        const movieRef = doc(db, 'movies', id);
+        if (!currentUser) return;
+        const movieRef = doc(db, `users/${currentUser.uid}/movies`, id);
         await updateDoc(movieRef, { status: 'downloaded' });
     };
 
     const removeMovie = async (id) => {
-        await deleteDoc(doc(db, 'movies', id));
+        if (!currentUser) return;
+        await deleteDoc(doc(db, `users/${currentUser.uid}/movies`, id));
     };
 
     // Schedule Actions
     const addToSchedule = async (day, movieId, classes = '') => {
+        if (!currentUser) return;
         const movie = movies.find(m => m.id === movieId);
         if (!movie) return;
 
-        await addDoc(collection(db, 'schedule'), {
+        await addDoc(collection(db, `users/${currentUser.uid}/schedule`), {
             day,
             movieId,
             title: movie.title,
@@ -156,17 +174,54 @@ export const MovieProvider = ({ children }) => {
     };
 
     const removeFromSchedule = async (day, entryId) => {
-        await deleteDoc(doc(db, 'schedule', entryId));
+        if (!currentUser) return;
+        await deleteDoc(doc(db, `users/${currentUser.uid}/schedule`, entryId));
     };
 
     const updateClasses = async (day, entryId, newClasses) => {
-        const entryRef = doc(db, 'schedule', entryId);
+        if (!currentUser) return;
+        const entryRef = doc(db, `users/${currentUser.uid}/schedule`, entryId);
         await updateDoc(entryRef, { classes: newClasses });
     };
 
     const toggleKidsLiked = async (id, currentStatus) => {
-        const movieRef = doc(db, 'movies', id);
+        if (!currentUser) return;
+        const movieRef = doc(db, `users/${currentUser.uid}/movies`, id);
         await updateDoc(movieRef, { kidsLiked: !currentStatus });
+    };
+
+    const translateMovies = async (targetLang) => {
+        const tmdbLang = targetLang === 'pt' ? 'pt-BR' :
+            targetLang === 'en' ? 'en-US' :
+                targetLang === 'es' ? 'es-ES' :
+                    targetLang === 'ja' ? 'ja-JP' :
+                        targetLang === 'pl' ? 'pl-PL' : 'pt-BR';
+
+        console.log(`Translating movies to ${tmdbLang}...`);
+
+        // We process in batches of 10 to avoid rate limits
+        const batchSize = 10;
+        const moviesToTranslate = movies.filter(m => m.tmdb_id); // Only translate movies linked to TMDB
+
+        for (let i = 0; i < moviesToTranslate.length; i += batchSize) {
+            const chunk = moviesToTranslate.slice(i, i + batchSize);
+            const batch = writeBatch(db);
+
+            const promises = chunk.map(async (movie) => {
+                const details = await getMovieDetails(movie.tmdb_id, tmdbLang);
+                if (details) {
+                    const movieRef = doc(db, `users/${currentUser.uid}/movies`, movie.id);
+                    batch.update(movieRef, {
+                        title: details.title,
+                        overview: details.overview
+                    });
+                }
+            });
+
+            await Promise.all(promises);
+            await batch.commit();
+            console.log(`Translated batch ${i / batchSize + 1}`);
+        }
     };
 
     return (
@@ -181,6 +236,7 @@ export const MovieProvider = ({ children }) => {
                 removeFromSchedule,
                 updateClasses,
                 toggleKidsLiked,
+                translateMovies,
                 loading
             }}
         >

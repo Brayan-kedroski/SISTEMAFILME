@@ -7,22 +7,54 @@ import Wishlist from './pages/Wishlist';
 import Downloaded from './pages/Downloaded';
 
 import Schedule from './pages/Schedule';
+import Stats from './pages/Stats';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import PrivateRoute from './components/PrivateRoute';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
-    <LanguageProvider>
+    <AuthProvider>
       <MovieProvider>
-        <Router>
-          <Layout>
+        <LanguageProvider>
+          <Router>
             <Routes>
-              <Route path="/" element={<Wishlist />} />
-              <Route path="/downloaded" element={<Downloaded />} />
-              <Route path="/schedule" element={<Schedule />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Wishlist />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/downloaded" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Downloaded />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/schedule" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Schedule />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/stats" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Stats />
+                  </Layout>
+                </PrivateRoute>
+              } />
             </Routes>
-          </Layout>
-        </Router>
+          </Router>
+        </LanguageProvider>
       </MovieProvider>
-    </LanguageProvider>
+    </AuthProvider>
   );
 }
 

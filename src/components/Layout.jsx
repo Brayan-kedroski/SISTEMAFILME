@@ -1,17 +1,32 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Film, CheckCircle, Heart, Globe, Calendar } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Film, CheckCircle, Heart, Globe, Calendar, BarChart2, Download, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import { useLanguage } from '../context/LanguageContext';
+import { useMovies } from '../context/MovieContext';
+import { useAuth } from '../context/AuthContext';
 
 const Layout = ({ children }) => {
     const location = useLocation();
+    const navigate = useNavigate();
     const { language, setLanguage, t } = useLanguage();
+    const { translateMovies } = useMovies();
+    const { logout } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/login');
+        } catch (error) {
+            console.error("Failed to log out", error);
+        }
+    };
 
     const navItems = [
-        { path: '/', label: t('nav.wishlist'), icon: Heart },
-        { path: '/downloaded', label: t('nav.myMovies'), icon: CheckCircle },
-        { path: '/schedule', label: t('nav.schedule'), icon: Calendar },
+        { path: '/', label: t('navWishlist'), icon: Heart },
+        { path: '/downloaded', label: t('navDownloaded'), icon: Download },
+        { path: '/schedule', label: t('navSchedule'), icon: Calendar },
+        { path: '/stats', label: t('navStats') || 'Stats', icon: BarChart2 },
     ];
 
     const languages = [
@@ -21,6 +36,12 @@ const Layout = ({ children }) => {
         { code: 'ja', label: 'JP' },
         { code: 'pl', label: 'PL' },
     ];
+
+    const handleLanguageChange = (langCode) => {
+        setLanguage(langCode);
+        // Trigger translation of movies
+        translateMovies(langCode);
+    };
 
     return (
         <div className="min-h-screen bg-slate-900 text-white font-sans selection:bg-pink-500 selection:text-white">
@@ -36,7 +57,7 @@ const Layout = ({ children }) => {
                             {languages.map((lang) => (
                                 <button
                                     key={lang.code}
-                                    onClick={() => setLanguage(lang.code)}
+                                    onClick={() => handleLanguageChange(lang.code)}
                                     className={clsx(
                                         "text-[10px] font-bold px-1.5 py-1 rounded-md transition-colors",
                                         language === lang.code
@@ -58,44 +79,54 @@ const Layout = ({ children }) => {
                                 <Link
                                     key={item.path}
                                     to={item.path}
+                                    className={clsx(
                                         'flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 px-2 md:px-3 py-2 rounded-full transition-all duration-300 flex-1 md:flex-none',
-                                isActive
-                                    ? 'bg-pink-500/20 text-pink-400'
-                                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+                                        isActive
+                                            ? 'bg-pink-500/20 text-pink-400'
+                                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                                     )}
                                 >
-                        <Icon className={clsx("w-5 h-5 md:w-6 md:h-6", isActive && "fill-current")} />
-                        <span className="text-[10px] md:text-sm font-medium">{item.label}</span>
-                    </Link>
-                    );
+                                    <Icon className={clsx("w-5 h-5 md:w-6 md:h-6", isActive && "fill-current")} />
+                                    <span className="text-[10px] md:text-sm font-medium">{item.label}</span>
+                                </Link>
+                            );
                         })}
-                </div>
+                    </div>
 
-                {/* Desktop Language Switcher */}
-                <div className="hidden md:flex items-center gap-1 bg-slate-800 rounded-full p-1 border border-slate-700">
-                    <Globe className="w-4 h-4 text-slate-400 ml-2 mr-1" />
-                    {languages.map((lang) => (
-                        <button
-                            key={lang.code}
-                            onClick={() => setLanguage(lang.code)}
-                            className={clsx(
-                                "text-xs font-bold px-2 py-1 rounded-full transition-all",
-                                language === lang.code
-                                    ? "bg-pink-500 text-white shadow-lg shadow-pink-500/25"
-                                    : "text-slate-400 hover:text-white"
-                            )}
-                        >
-                            {lang.label}
-                        </button>
-                    ))}
+                    {/* Desktop Language Switcher */}
+                    <div className="hidden md:flex items-center gap-1 bg-slate-800 rounded-full p-1 border border-slate-700">
+                        <Globe className="w-4 h-4 text-slate-400 ml-2 mr-1" />
+                        {languages.map((lang) => (
+                            <button
+                                key={lang.code}
+                                onClick={() => handleLanguageChange(lang.code)}
+                                className={clsx(
+                                    "text-xs font-bold px-2 py-1 rounded-full transition-all",
+                                    language === lang.code
+                                        ? "bg-pink-500 text-white shadow-lg shadow-pink-500/25"
+                                        : "text-slate-400 hover:text-white"
+                                )}
+                            >
+                                {lang.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Logout Button */}
+                    <button
+                        onClick={handleLogout}
+                        className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors ml-2"
+                        title="Logout"
+                    >
+                        <LogOut className="w-5 h-5" />
+                    </button>
                 </div>
+            </nav>
+
+            <main className="pb-32 pt-8 md:pt-24 px-4 max-w-5xl mx-auto">
+                {children}
+            </main>
         </div>
-            </nav >
-
-    <main className="pb-32 pt-8 md:pt-24 px-4 max-w-5xl mx-auto">
-        {children}
-    </main>
-        </div >
     );
 };
 

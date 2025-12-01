@@ -1,38 +1,52 @@
 import React, { useState } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Plus, Trash2, Calendar, Users } from 'lucide-react';
-import { getPosterUrl } from '../services/tmdb';
+import { Calendar, Plus, Trash2, Printer } from 'lucide-react';
 import clsx from 'clsx';
+import { getPosterUrl } from '../services/tmdb';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const Schedule = () => {
-    const { movies, schedule, addToSchedule, removeFromSchedule, updateClasses } = useMovies();
-    const { t } = useLanguage();
-
-    const [selectedDay, setSelectedDay] = useState('Mon');
+    const { schedule, addToSchedule, removeFromSchedule, movies } = useMovies();
+    const { t, language } = useLanguage();
+    const [selectedDay, setSelectedDay] = useState('monday');
     const [isAdding, setIsAdding] = useState(false);
+    const [selectedMovieId, setSelectedMovieId] = useState('');
+    const [classInput, setClassInput] = useState('');
 
-    const downloadedMovies = movies.filter(m => m.status === 'downloaded');
-    const currentSchedule = schedule[selectedDay] || [];
-
-    const handleAddMovie = (movieId) => {
-        addToSchedule(selectedDay, movieId, '');
-        setIsAdding(false);
+    const handleAdd = (e) => {
+        e.preventDefault();
+        if (selectedMovieId && classInput) {
+            addToSchedule(selectedDay, selectedMovieId, classInput);
+            setIsAdding(false);
+            setSelectedMovieId('');
+            setClassInput('');
+        }
     };
 
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const currentSchedule = schedule[selectedDay] || [];
+
     return (
-        <div className="space-y-8">
-            <header className="text-center space-y-2">
+        <div className="space-y-8 print:space-y-4">
+            <header className="text-center space-y-2 print:hidden">
                 <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
                     {t('scheduleTitle')}
                 </h1>
                 <p className="text-slate-400">{t('scheduleSubtitle')}</p>
             </header>
 
-            {/* Day Selector */}
-            <div className="flex overflow-x-auto pb-4 gap-2 md:justify-center custom-scrollbar snap-x snap-mandatory px-4 md:px-0">
+            {/* Print Header */}
+            <div className="hidden print:block text-center mb-8">
+                <h1 className="text-3xl font-bold text-black">KidsFlix - {t('scheduleTitle')}</h1>
+            </div>
+
+            {/* Day Selector - Hidden on Print */}
+            <div className="flex overflow-x-auto pb-4 gap-2 md:justify-center custom-scrollbar snap-x snap-mandatory px-4 md:px-0 print:hidden">
                 {DAYS.map(day => (
                     <button
                         key={day}
@@ -49,89 +63,126 @@ const Schedule = () => {
                 ))}
             </div>
 
-            {/* Schedule Content */}
-            <div className="bg-slate-800/30 border border-slate-700 rounded-3xl p-6 min-h-[400px]">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-blue-400" />
-                        {t(`days.${selectedDay}`)}
-                    </h2>
+            {/* Print Controls */}
+            <div className="flex justify-end print:hidden">
+                <button
+                    onClick={handlePrint}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+                >
+                    <Printer className="w-4 h-4" />
+                    {t('print') || 'Print'}
+                </button>
+            </div>
+
+            {/* Schedule List */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                    <h2 className="text-2xl font-bold capitalize text-white">{t(`days.${selectedDay}`)}</h2>
                     <button
                         onClick={() => setIsAdding(!isAdding)}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-bold flex items-center gap-2 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
                     >
-                        <Plus className="w-4 h-4" /> {t('add')}
+                        <Plus className="w-4 h-4" />
+                        {t('add')}
                     </button>
                 </div>
 
-                {/* Add Movie Dropdown/Modal Area */}
-                {isAdding && (
-                    <div className="mb-6 p-4 bg-slate-800 rounded-xl border border-slate-600 animate-in fade-in slide-in-from-top-2">
-                        <h3 className="font-bold mb-3 text-slate-300">{t('selectMovie')}</h3>
-                        {downloadedMovies.length === 0 ? (
-                            <p className="text-slate-500 text-sm">{t('noMoviesDownloaded')}</p>
-                        ) : (
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-60 overflow-y-auto custom-scrollbar">
-                                {downloadedMovies.map(movie => (
-                                    <button
-                                        key={movie.id}
-                                        onClick={() => handleAddMovie(movie.id)}
-                                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-700 text-left transition-colors group"
-                                    >
-                                        {movie.poster_path ? (
-                                            <img src={getPosterUrl(movie.poster_path, 'w92')} alt="" className="w-8 h-12 object-cover rounded" />
-                                        ) : (
-                                            <div className="w-8 h-12 bg-slate-900 rounded flex-shrink-0" />
-                                        )}
-                                        <span className="text-sm font-medium truncate group-hover:text-blue-400">{movie.title}</span>
-                                    </button>
-                                ))}
+                {/* Print View: Show All Days */}
+                <div className="hidden print:block space-y-8">
+                    {DAYS.map(day => (
+                        <div key={day} className="break-inside-avoid">
+                            <h3 className="text-xl font-bold capitalize border-b-2 border-slate-300 mb-4 text-black">{t(`days.${day}`)}</h3>
+                            <div className="space-y-2">
+                                {(schedule[day] || []).map(item => {
+                                    const movie = movies.find(m => m.id === item.movieId);
+                                    if (!movie) return null;
+                                    return (
+                                        <div key={item.id} className="flex justify-between items-center p-2 border border-slate-200 rounded">
+                                            <span className="font-bold text-black">{movie.title}</span>
+                                            <span className="text-slate-600">{item.class}</span>
+                                        </div>
+                                    );
+                                })}
+                                {(!schedule[day] || schedule[day].length === 0) && (
+                                    <p className="text-slate-400 italic text-sm">No activities</p>
+                                )}
                             </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Entries List */}
-                <div className="space-y-4">
-                    {currentSchedule.length === 0 ? (
-                        <div className="text-center py-12 text-slate-500 border-2 border-dashed border-slate-700/50 rounded-xl">
-                            No movies scheduled for this day.
                         </div>
-                    ) : (
-                        currentSchedule.map(entry => (
-                            <div key={entry.id} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 flex flex-col md:flex-row gap-4 items-start md:items-center">
-                                <div className="flex items-center gap-3 flex-1">
-                                    {entry.poster_path ? (
-                                        <img src={getPosterUrl(entry.poster_path, 'w92')} alt="" className="w-12 h-16 object-cover rounded shadow-sm" />
-                                    ) : (
-                                        <div className="w-12 h-16 bg-slate-800 rounded flex-shrink-0" />
-                                    )}
-                                    <div>
-                                        <h3 className="font-bold text-lg">{entry.title}</h3>
-                                    </div>
-                                </div>
+                    ))}
+                </div>
 
-                                <div className="flex-1 w-full md:w-auto">
-                                    <label className="text-xs text-slate-500 font-bold uppercase mb-1 block flex items-center gap-1">
-                                        <Users className="w-3 h-3" /> {t('classes')}
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={entry.classes}
-                                        onChange={(e) => updateClasses(selectedDay, entry.id, e.target.value)}
-                                        placeholder="e.g. 1A, 2B"
-                                        className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                                    />
-                                </div>
-
+                {/* Screen View: Selected Day */}
+                <div className="print:hidden space-y-4">
+                    {isAdding && (
+                        <form onSubmit={handleAdd} className="bg-slate-800/50 p-4 rounded-xl border border-slate-700 space-y-4 animate-in fade-in slide-in-from-top-4">
+                            <select
+                                value={selectedMovieId}
+                                onChange={(e) => setSelectedMovieId(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                required
+                            >
+                                <option value="">{t('selectMovie')}</option>
+                                {movies.filter(m => m.status === 'downloaded').map(movie => (
+                                    <option key={movie.id} value={movie.id}>{movie.title}</option>
+                                ))}
+                            </select>
+                            <input
+                                type="text"
+                                value={classInput}
+                                onChange={(e) => setClassInput(e.target.value)}
+                                placeholder={t('classPlaceholder')}
+                                className="w-full px-4 py-2 rounded-lg bg-slate-900 border border-slate-600 focus:border-blue-500 focus:outline-none"
+                                required
+                            />
+                            <div className="flex justify-end gap-2">
                                 <button
-                                    onClick={() => removeFromSchedule(selectedDay, entry.id)}
-                                    className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full transition-colors self-end md:self-center"
+                                    type="button"
+                                    onClick={() => setIsAdding(false)}
+                                    className="px-4 py-2 text-slate-400 hover:text-white"
                                 >
-                                    <Trash2 className="w-5 h-5" />
+                                    {t('cancel')}
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg"
+                                >
+                                    {t('save')}
                                 </button>
                             </div>
-                        ))
+                        </form>
+                    )}
+
+                    {currentSchedule.length === 0 ? (
+                        <div className="text-center py-12 text-slate-500 bg-slate-800/30 rounded-xl border border-dashed border-slate-700">
+                            {t('noSchedule')}
+                        </div>
+                    ) : (
+                        currentSchedule.map((item) => {
+                            const movie = movies.find(m => m.id === item.movieId);
+                            if (!movie) return null;
+
+                            return (
+                                <div key={item.id} className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 flex flex-col md:flex-row gap-4 items-start md:items-center group hover:border-slate-600 transition-all">
+                                    {movie.poster_path && (
+                                        <img src={getPosterUrl(movie.poster_path, 'w92')} alt={movie.title} className="w-12 h-16 object-cover rounded hidden md:block" />
+                                    )}
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-lg">{movie.title}</h4>
+                                        <div className="flex items-center gap-2 text-slate-400 text-sm">
+                                            <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded">
+                                                {item.class}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => removeFromSchedule(selectedDay, item.id)}
+                                        className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            );
+                        })
                     )}
                 </div>
             </div>
