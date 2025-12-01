@@ -10,7 +10,11 @@ import Schedule from './pages/Schedule';
 import Stats from './pages/Stats';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AdminDashboard from './pages/AdminDashboard';
+import FirstAccess from './pages/FirstAccess';
+import Suggestions from './pages/Suggestions';
 import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
 import { AuthProvider } from './context/AuthContext';
 
 function App() {
@@ -22,6 +26,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/first-access" element={<FirstAccess />} />
               <Route path="/" element={
                 <PrivateRoute>
                   <Layout>
@@ -47,6 +52,20 @@ function App() {
                 <PrivateRoute>
                   <Layout>
                     <Stats />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/admin" element={
+                <AdminRoute>
+                  <Layout>
+                    <AdminDashboard />
+                  </Layout>
+                </AdminRoute>
+              } />
+              <Route path="/suggestions" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Suggestions />
                   </Layout>
                 </PrivateRoute>
               } />

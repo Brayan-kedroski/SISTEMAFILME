@@ -153,6 +153,12 @@ export const MovieProvider = ({ children }) => {
         await updateDoc(movieRef, { status: 'downloaded' });
     };
 
+    const moveToWishlist = async (id) => {
+        if (!currentUser) return;
+        const movieRef = doc(db, `users/${currentUser.uid}/movies`, id);
+        await updateDoc(movieRef, { status: 'wishlist' });
+    };
+
     const removeMovie = async (id) => {
         if (!currentUser) return;
         await deleteDoc(doc(db, `users/${currentUser.uid}/movies`, id));
@@ -237,6 +243,7 @@ export const MovieProvider = ({ children }) => {
                 updateClasses,
                 toggleKidsLiked,
                 translateMovies,
+                moveToWishlist,
                 loading
             }}
         >

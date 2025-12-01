@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Film, CheckCircle, Heart, Globe, Calendar, BarChart2, Download, LogOut } from 'lucide-react';
+import { Film, CheckCircle, Heart, Globe, Calendar, BarChart2, Download, LogOut, MessageSquarePlus } from 'lucide-react';
 import clsx from 'clsx';
 import { useLanguage } from '../context/LanguageContext';
 import { useMovies } from '../context/MovieContext';
@@ -11,7 +11,7 @@ const Layout = ({ children }) => {
     const navigate = useNavigate();
     const { language, setLanguage, t } = useLanguage();
     const { translateMovies } = useMovies();
-    const { logout } = useAuth();
+    const { logout, userRole } = useAuth();
 
     const handleLogout = async () => {
         try {
@@ -23,11 +23,16 @@ const Layout = ({ children }) => {
     };
 
     const navItems = [
-        { path: '/', label: t('navWishlist'), icon: Heart },
-        { path: '/downloaded', label: t('navDownloaded'), icon: Download },
-        { path: '/schedule', label: t('navSchedule'), icon: Calendar },
-        { path: '/stats', label: t('navStats') || 'Stats', icon: BarChart2 },
+        { path: '/', label: t('nav.wishlist'), icon: Heart },
+        { path: '/downloaded', label: t('nav.myMovies'), icon: Download },
+        { path: '/schedule', label: t('nav.schedule'), icon: Calendar },
+        { path: '/stats', label: t('nav.stats') || 'Stats', icon: BarChart2 },
+        { path: '/suggestions', label: t('nav.suggestions') || 'Sugestões', icon: MessageSquarePlus },
     ];
+
+    if (userRole === 'admin') {
+        navItems.push({ path: '/admin', label: 'Admin', icon: CheckCircle });
+    }
 
     const languages = [
         { code: 'pt', label: 'PT' },

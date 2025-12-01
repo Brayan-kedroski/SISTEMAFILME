@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useMovies } from '../context/MovieContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Trash2, Film, Heart, Play, Filter, X } from 'lucide-react';
+import { Trash2, Film, Heart, Play, Filter, X, RotateCcw } from 'lucide-react';
 import { getPosterUrl, getMovieTrailer, searchMovies } from '../services/tmdb';
 
 const Downloaded = () => {
-    const { movies, removeMovie, toggleKidsLiked } = useMovies();
+    const { movies, removeMovie, toggleKidsLiked, moveToWishlist } = useMovies();
     const { t, language } = useLanguage();
 
     // Filters & Sorting
@@ -188,6 +188,13 @@ const Downloaded = () => {
                                         title={movie.kidsLiked ? "Kids Liked!" : "Did kids like it?"}
                                     >
                                         <Heart className={`w-5 h-5 ${movie.kidsLiked ? 'fill-current' : ''}`} />
+                                    </button>
+                                    <button
+                                        onClick={() => moveToWishlist(movie.id)}
+                                        className="p-2 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded-full transition-colors"
+                                        title="Move back to Wishlist"
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
                                     </button>
                                     <button
                                         onClick={() => removeMovie(movie.id)}
