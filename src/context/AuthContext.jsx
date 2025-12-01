@@ -4,7 +4,12 @@ import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    signInWithPopup,
+    sendSignInLinkToEmail,
+    isSignInWithEmailLink,
+    signInWithEmailLink
 } from 'firebase/auth';
 
 const AuthContext = createContext();
@@ -21,6 +26,25 @@ export const AuthProvider = ({ children }) => {
 
     const login = (email, password) => {
         return signInWithEmailAndPassword(auth, email, password);
+    };
+
+    const googleSignIn = () => {
+        const provider = new GoogleAuthProvider();
+        return signInWithPopup(auth, provider);
+    };
+
+    const sendMagicLink = (email) => {
+        const actionCodeSettings = {
+            // URL you want to redirect back to. The domain (www.example.com) for this
+            // URL must be in the authorized domains list in the Firebase Console.
+            url: window.location.origin + '/login',
+            handleCodeInApp: true,
+        };
+        return sendSignInLinkToEmail(auth, email, actionCodeSettings);
+    };
+
+    const completeMagicLinkSignIn = (email, href) => {
+        return signInWithEmailLink(auth, email, href);
     };
 
     const logout = () => {
@@ -40,7 +64,10 @@ export const AuthProvider = ({ children }) => {
         currentUser,
         signup,
         login,
-        logout
+        logout,
+        googleSignIn,
+        sendMagicLink,
+        completeMagicLinkSignIn
     };
 
     return (
