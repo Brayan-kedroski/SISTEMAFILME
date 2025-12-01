@@ -56,42 +56,53 @@ export const AuthProvider = ({ children }) => {
         return signOut(auth);
     };
 
+    const resetPassword = (email) => {
+        return sendPasswordResetEmail(auth, email);
+    };
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                // Fetch user details from Firestore
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
+            try {
+                if (user) {
+                    // Fetch user details from Firestore
+                    const userDocRef = doc(db, 'users', user.uid);
+                    const userDoc = await getDoc(userDocRef);
 
-                if (userDoc.exists()) {
-                    const userData = userDoc.data();
-                    setUserRole(userData.role || 'user');
-                    setUserStatus(userData.status || 'pending');
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        setUserRole(userData.role || 'user');
+                        setUserStatus(userData.status || 'pending');
 
-                    // Special case for the super admin
-                    if (user.email === 'brayan900mauricio@gmail.com' && userData.role !== 'admin') {
-                        await setDoc(userDocRef, { ...userData, role: 'admin', status: 'approved' }, { merge: true });
-                        setUserRole('admin');
-                        setUserStatus('approved');
+                        // Special case for the super admin
+                        if (user.email === 'brayan900mauricio@gmail.com' && userData.role !== 'admin') {
+                            await setDoc(userDocRef, { ...userData, role: 'admin', status: 'approved' }, { merge: true });
+                            setUserRole('admin');
+                            setUserStatus('approved');
+                        }
+                    } else {
+                        // Create initial user doc if it doesn't exist
+                        const initialData = {
+                            email: user.email,
+                            role: user.email === 'brayan900mauricio@gmail.com' ? 'admin' : 'user',
+                            status: user.email === 'brayan900mauricio@gmail.com' ? 'approved' : 'pending',
+                            createdAt: new Date().toISOString()
+                        };
+                        await setDoc(userDocRef, initialData);
+                        setUserRole(initialData.role);
+                        setUserStatus(initialData.status);
                     }
                 } else {
-                    // Create initial user doc if it doesn't exist
-                    const initialData = {
-                        email: user.email,
-                        role: user.email === 'brayan900mauricio@gmail.com' ? 'admin' : 'user',
-                        status: user.email === 'brayan900mauricio@gmail.com' ? 'approved' : 'pending',
-                        createdAt: new Date().toISOString()
-                    };
-                    await setDoc(userDocRef, initialData);
-                    setUserRole(initialData.role);
-                    setUserStatus(initialData.status);
+                    setUserRole(null);
+                    setUserStatus(null);
                 }
-            } else {
-                setUserRole(null);
-                setUserStatus(null);
+                setCurrentUser(user);
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+                // Fallback for auth error - still allow login but maybe with limited access or just log it
+                setCurrentUser(user);
+            } finally {
+                setLoading(false);
             }
-            setCurrentUser(user);
-            setLoading(false);
         });
 
         return unsubscribe;
@@ -106,7 +117,10 @@ export const AuthProvider = ({ children }) => {
         logout,
         googleSignIn,
         sendMagicLink,
-        completeMagicLinkSignIn
+        googleSignIn,
+        sendMagicLink,
+        completeMagicLinkSignIn,
+        resetPassword
     };
 
     return (

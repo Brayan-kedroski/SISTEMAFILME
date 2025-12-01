@@ -11,8 +11,8 @@ const Login = () => {
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login, googleSignIn, sendMagicLink, completeMagicLinkSignIn, currentUser } = useAuth();
-    const { language, setLanguage } = useLanguage();
+    const { login, googleSignIn, sendMagicLink, completeMagicLinkSignIn, resetPassword, currentUser } = useAuth();
+    const { language, setLanguage, t } = useLanguage();
     const navigate = useNavigate();
 
     const languages = [
@@ -50,18 +50,31 @@ const Login = () => {
         checkMagicLink();
     }, []);
 
+    // Redirect when user is authenticated
+    useEffect(() => {
+        if (currentUser) {
+            navigate('/');
+        }
+    }, [currentUser, navigate]);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             setError('');
             setLoading(true);
             await login(email, password);
-            navigate('/');
+            // Navigation will be handled by useEffect
         } catch (err) {
-            setError('Failed to log in. Please check your credentials.');
+            if (err.code === 'auth/too-many-requests') {
+                setError(t('tooManyRequests') || 'Too many attempts. Please try again later or reset your password.');
+            } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+                setError(t('invalidCredentials') || 'Invalid email or password.');
+            } else {
+                setError('Failed to log in: ' + err.code);
+            }
             console.error(err);
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     const handleGoogleSignIn = async () => {
@@ -97,6 +110,24 @@ const Login = () => {
         }
     };
 
+    const handleResetPassword = async () => {
+        if (!email) {
+            return setError(t('emailPlaceholder') || 'Please enter your email first.');
+        }
+        try {
+            setError('');
+            setMessage('');
+            setLoading(true);
+            await resetPassword(email);
+            setMessage(t('resetPasswordEmailSent') || 'Password reset email sent!');
+        } catch (err) {
+            setError(t('resetPasswordFailed') || 'Failed to send reset email.');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 relative">
             {/* Language Switcher */}
@@ -123,14 +154,22 @@ const Login = () => {
                         <Film className="w-12 h-12 text-pink-500" />
                     </div>
                     <h2 className="text-3xl font-bold bg-gradient-to-r from-pink-500 to-purple-500 bg-clip-text text-transparent">
-                        Welcome Back
+                        {t('loginWelcome') || 'Welcome Back'}
                     </h2>
-                    <p className="text-slate-400 mt-2">Login to manage your kids' movies</p>
+                    <p className="text-slate-400 mt-2">{t('loginSubtitle') || "Login to manage your kids' movies"}</p>
                 </div>
 
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded-xl mb-6 text-sm text-center">
-                        {error}
+                        <p>{error}</p>
+                        {(error.includes('Too many attempts') || error.includes('Muitas tentativas')) && (
+                            <button
+                                onClick={handleMagicLink}
+                                className="mt-2 text-white underline font-bold hover:text-pink-400"
+                            >
+                                {t('tryMagicLink') || 'Try Magic Link instead'}
+                            </button>
+                        )}
                     </div>
                 )}
 
@@ -142,7 +181,7 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">Email</label>
+                        <label className="text-sm font-bold text-slate-300 ml-1">{t('emailLabel') || 'Email'}</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
                             <input
@@ -150,14 +189,14 @@ const Login = () => {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-pink-500 focus:outline-none text-white transition-colors"
-                                placeholder="Enter your email"
+                                placeholder={t('emailPlaceholder') || "Enter your email"}
                                 required
                             />
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-slate-300 ml-1">Password</label>
+                        <label className="text-sm font-bold text-slate-300 ml-1">{t('passwordLabel') || 'Password'}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-500" />
                             <input
@@ -165,9 +204,18 @@ const Login = () => {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-xl focus:border-pink-500 focus:outline-none text-white transition-colors"
-                                placeholder="Enter your password"
+                                placeholder={t('passwordPlaceholder') || "Enter your password"}
                                 required
                             />
+                        </div>
+                        <div className="text-right">
+                            <button
+                                type="button"
+                                onClick={handleResetPassword}
+                                className="text-xs text-pink-400 hover:text-pink-300"
+                            >
+                                {t('forgotPassword') || 'Forgot Password?'}
+                            </button>
                         </div>
                     </div>
 
@@ -176,13 +224,13 @@ const Login = () => {
                         disabled={loading}
                         className="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white font-bold rounded-xl transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                     >
-                        {loading ? 'Logging in...' : 'Login'}
+                        {loading ? (t('loggingIn') || 'Logging in...') : (t('loginButton') || 'Login')}
                     </button>
                 </form>
 
                 <div className="relative flex py-5 items-center">
                     <div className="flex-grow border-t border-slate-700"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase font-bold">Or continue with</span>
+                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs uppercase font-bold">{t('orContinue') || 'Or continue with'}</span>
                     <div className="flex-grow border-t border-slate-700"></div>
                 </div>
 
@@ -193,14 +241,14 @@ const Login = () => {
                         className="flex items-center justify-center gap-2 py-2.5 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50"
                     >
                         <Chrome className="w-5 h-5" />
-                        Google
+                        {t('googleLogin') || 'Google'}
                     </button>
                     <Link
                         to="/first-access"
                         className="flex items-center justify-center gap-2 py-2.5 bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-600 transition-colors"
                     >
                         <Wand2 className="w-5 h-5 text-purple-400" />
-                        First Access?
+                        {t('firstAccess') || 'First Access?'}
                     </Link>
                 </div>
 
@@ -210,8 +258,9 @@ const Login = () => {
                         disabled={loading || !email}
                         className="text-sm text-slate-400 hover:text-white underline"
                     >
-                        Or sign in with Magic Link (Email only)
+                        {t('magicLink') || 'Or sign in with Magic Link (Email only)'}
                     </button>
+                    {/* Register link removed as per user request */}
                 </div>
             </div>
         </div>

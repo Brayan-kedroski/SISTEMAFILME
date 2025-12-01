@@ -27,11 +27,19 @@ const Layout = ({ children }) => {
         { path: '/downloaded', label: t('nav.myMovies'), icon: Download },
         { path: '/schedule', label: t('nav.schedule'), icon: Calendar },
         { path: '/stats', label: t('nav.stats') || 'Stats', icon: BarChart2 },
+        { path: '/stats', label: t('nav.stats') || 'Stats', icon: BarChart2 },
         { path: '/suggestions', label: t('nav.suggestions') || 'Sugestões', icon: MessageSquarePlus },
     ];
 
+    // Admin items will be handled separately or appended
+    const adminItems = [
+        { path: '/admin', label: 'Dashboard', icon: CheckCircle },
+        // Add more admin specific routes here if needed, e.g. /admin/users
+    ];
+
     if (userRole === 'admin') {
-        navItems.push({ path: '/admin', label: 'Admin', icon: CheckCircle });
+        // Add admin items to main nav for now, or we could create a separate section
+        navItems.push(...adminItems);
     }
 
     const languages = [
