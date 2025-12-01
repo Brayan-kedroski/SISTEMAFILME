@@ -20,6 +20,9 @@ import { ThemeProvider } from './context/ThemeContext';
 import Landing from './pages/Landing';
 
 import LanguageSwitcher from './components/LanguageSwitcher';
+import TeacherDashboard from './pages/TeacherDashboard';
+import TeacherRoute from './components/TeacherRoute';
+import StudentDashboard from './pages/StudentDashboard';
 
 function App() {
   return (
@@ -79,12 +82,37 @@ function App() {
                     </Layout>
                   }
                 />
+
                 <Route
                   path="/admin"
                   element={
                     <PrivateRoute>
                       <Layout>
                         <AdminDashboard />
+                      </Layout>
+                    </PrivateRoute>
+                  }
+                />
+
+
+                // ... existing imports
+
+                <Route
+                  path="/teacher"
+                  element={
+                    <TeacherRoute>
+                      <Layout>
+                        <TeacherDashboard />
+                      </Layout>
+                    </TeacherRoute>
+                  }
+                />
+                <Route
+                  path="/student"
+                  element={
+                    <PrivateRoute>
+                      <Layout>
+                        <StudentDashboard />
                       </Layout>
                     </PrivateRoute>
                   }

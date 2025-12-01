@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-const firebaseConfig = {
+export const firebaseConfig = {
     apiKey: "AIzaSyDRnqeGpeocVybpToR6lxNpHqHGKwvN0G8",
     authDomain: "kids-movie-manager.firebaseapp.com",
     projectId: "kids-movie-manager",

@@ -1,8 +1,9 @@
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY || 'dabffb875f052e64b3bb23eb30fc5fd7';
+const API_KEY = import.meta.env.VITE_TMDB_API_KEY || 'd4d51086088d924a6898950c47481b49';
 const BASE_URL = 'https://api.themoviedb.org/3';
 
 export const searchMovies = async (query, language = 'pt-BR') => {
     if (!query) return [];
+    console.log(`[TMDB] Searching for "${query}" in language: ${language}`);
 
     if (API_KEY === 'YOUR_API_KEY_HERE') {
         console.warn('TMDB API Key missing. Returning mock data.');
@@ -17,10 +18,11 @@ export const searchMovies = async (query, language = 'pt-BR') => {
     }
 
     try {
-        const response = await fetch(
-            `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=${language}`
-        );
+        const url = `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=${language}`;
+        console.log(`[TMDB] Request URL: ${url}`);
+        const response = await fetch(url);
         const data = await response.json();
+        console.log(`[TMDB] Results found: ${data.results?.length || 0}`);
         return data.results || [];
     } catch (error) {
         console.error('Error fetching from TMDB:', error);
@@ -34,6 +36,7 @@ export const getPosterUrl = (path, size = 'w500') => {
 };
 
 export const getMovieTrailer = async (movieId, language = 'pt-BR') => {
+    console.log(`[TMDB] Fetching trailer for movie ${movieId} in ${language}`);
     try {
         // First try with the requested language
         let response = await fetch(`${BASE_URL}/movie/${movieId}/videos?api_key=${API_KEY}&language=${language}`);
@@ -45,13 +48,20 @@ export const getMovieTrailer = async (movieId, language = 'pt-BR') => {
 
         // If no trailer found in requested language, fallback to English
         if (!trailer && language !== 'en-US') {
+            console.log(`[TMDB] No trailer in ${language}, trying en-US`);
             response = await fetch(`${BASE_URL}/movie/${movieId}/videos?api_key=${API_KEY}&language=en-US`);
             data = await response.json();
             results = data.results || [];
             trailer = results.find(video => video.site === 'YouTube' && video.type === 'Trailer');
         }
 
-        return trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
+        if (trailer) {
+            console.log(`[TMDB] Trailer found: ${trailer.key}`);
+            return `https://www.youtube.com/embed/${trailer.key}`;
+        } else {
+            console.log(`[TMDB] No trailer found.`);
+            return null;
+        }
     } catch (error) {
         console.error('Error fetching trailer:', error);
         return null;

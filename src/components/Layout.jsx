@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import {
     Heart, Download, Calendar, MessageSquarePlus,
-    BarChart2, LogOut, Film, Menu, X
+    BarChart2, LogOut, Film, Menu, X, GraduationCap
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -26,6 +26,15 @@ const Layout = ({ children }) => {
 
     if (userRole === 'admin') {
         navItems.push({ path: '/admin', icon: BarChart2, label: t('nav.admin') || 'Admin' });
+    }
+
+    if (userRole === 'teacher' || userRole === 'admin') {
+        navItems.push({ path: '/teacher', icon: GraduationCap, label: t('teacherDashboard') || 'Teacher' });
+    }
+
+    if (userRole === 'user' || userRole === 'student' || userRole === 'admin') {
+        // Assuming 'user' is the default role for students, or explicitly 'student'
+        navItems.push({ path: '/student', icon: GraduationCap, label: t('studentDashboard') || 'Student' });
     }
 
     const handleLogout = async () => {

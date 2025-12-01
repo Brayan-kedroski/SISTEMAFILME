@@ -5,6 +5,7 @@ import { db } from '../services/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { MessageSquarePlus, Search, ArrowRight, Film, Send } from 'lucide-react';
 import clsx from 'clsx';
+import { searchMovies } from '../services/tmdb';
 
 const Suggestions = () => {
     const [message, setMessage] = useState('');
@@ -13,6 +14,20 @@ const Suggestions = () => {
     const { t, language } = useLanguage();
     const [title, setTitle] = useState('');
     const [reason, setReason] = useState('');
+
+    // Search state
+    const [manualSearchResults, setManualSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+
+        setIsSearching(true);
+        const results = await searchMovies(title, language === 'pt' ? 'pt-BR' : 'en-US');
+        setManualSearchResults(results || []);
+        setIsSearching(false);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,26 +46,12 @@ const Suggestions = () => {
             setMessage(t('suggestionSent') || 'Suggestion sent successfully!');
             setTitle('');
             setReason('');
+            setManualSearchResults([]);
         } catch (error) {
             console.error("Error sending suggestion:", error);
             setMessage(t('suggestionFailed') || 'Failed to send suggestion.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const [manualSearchResults, setManualSearchResults] = useState([]);
-
-    const handleManualSearch = async (query) => {
-        if (!query) return;
-        try {
-            const response = await fetch(
-                `https://api.themoviedb.org/3/search/movie?api_key=d4d51086088d924a6898950c47481b49&language=${language === 'pt' ? 'pt-BR' : 'en-US'}&query=${encodeURIComponent(query)}&page=1&include_adult=false`
-            );
-            const data = await response.json();
-            setManualSearchResults(data.results ? data.results.slice(0, 5) : []);
-        } catch (error) {
-            console.error("Error searching movies:", error);
         }
     };
 
@@ -77,13 +78,6 @@ const Suggestions = () => {
         setSelectedAge(ageValue);
         setLoadingSuggestions(true);
         try {
-            // Map 'L' to 0 or a very low number for API logic if needed, but 'L' is a specific cert in BR
-            // For TMDB discovery with certification_country=BR:
-            // L = Livre
-            // 10 = 10
-            // 12 = 12
-            // etc.
-
             let certQuery = ageValue;
             if (ageValue === 'L') certQuery = 'L';
 
@@ -101,7 +95,6 @@ const Suggestions = () => {
 
     const handleSelectMovie = (movie) => {
         setTitle(movie.title);
-        // Use the movie overview as the reason, or fallback to the default text
         setReason(movie.overview || (t('suggestionFromAgeSearch') || `Suggested based on age search: ${selectedAge}`));
         setSuggestedMovies([]);
         setSelectedAge(null);
@@ -130,29 +123,35 @@ const Suggestions = () => {
                         </div>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-6 relative">
+                    <div className="space-y-6 relative">
                         <div className="space-y-2">
                             <label className="text-sm font-bold text-gray-300 ml-1">{t('searchLabel') || 'Buscar Título no TMDB'}</label>
                             <div className="relative">
-                                <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                                 <input
                                     type="text"
                                     value={title}
-                                    onChange={(e) => {
-                                        setTitle(e.target.value);
-                                        if (e.target.value.length > 2) {
-                                            handleManualSearch(e.target.value);
-                                        } else {
-                                            setManualSearchResults([]);
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSearch(e);
                                         }
                                     }}
-                                    className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors placeholder-gray-500"
+                                    className="w-full pl-4 pr-12 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors placeholder-gray-500"
                                     placeholder={t('searchPlaceholder') || "Digite o nome do filme..."}
-                                    required
                                     autoComplete="off"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={handleSearch}
+                                    disabled={isSearching || !title.trim()}
+                                    className="absolute right-2 top-2 bottom-2 px-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-white transition-colors disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {isSearching ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Search className="w-5 h-5" />}
+                                </button>
+
                                 {manualSearchResults.length > 0 && (
-                                    <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                                    <div className="absolute z-10 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-60 overflow-y-auto custom-scrollbar">
                                         {manualSearchResults.map(movie => (
                                             <button
                                                 key={movie.id}
@@ -177,24 +176,26 @@ const Suggestions = () => {
                             <p className="text-xs text-gray-500 ml-1">Selecione um filme da lista para preencher automaticamente.</p>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-gray-300 ml-1">{t('reasonLabel') || 'Sinopse / Motivo'}</label>
-                            <textarea
-                                value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                                className="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors h-32 resize-none placeholder-gray-500"
-                                placeholder={t('reasonPlaceholder') || "A sinopse aparecerá aqui..."}
-                            />
-                        </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-gray-300 ml-1">{t('reasonLabel') || 'Sinopse / Motivo'}</label>
+                                <textarea
+                                    value={reason}
+                                    onChange={(e) => setReason(e.target.value)}
+                                    className="w-full p-4 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors h-32 resize-none placeholder-gray-500"
+                                    placeholder={t('reasonPlaceholder') || "A sinopse aparecerá aqui..."}
+                                />
+                            </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
-                        >
-                            {loading ? (t('sending') || 'Enviando...') : <>{t('sendSuggestion') || 'Enviar Sugestão'} <Send className="w-5 h-5" /></>}
-                        </button>
-                    </form>
+                            <button
+                                type="submit"
+                                disabled={loading || !title}
+                                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
+                            >
+                                {loading ? (t('sending') || 'Enviando...') : <>{t('sendSuggestion') || 'Enviar Sugestão'} <Send className="w-5 h-5" /></>}
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 {/* Age-based Recommendations */}

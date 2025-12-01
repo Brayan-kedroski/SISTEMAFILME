@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../services/firebase';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, orderBy, deleteDoc } from 'firebase/firestore';
-import { CheckCircle, XCircle, UserPlus, Users, Film, Mail, Shield, Clock, Search, Trash2, Edit, Save, X } from 'lucide-react';
+import { db, firebaseConfig } from '../services/firebase';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, orderBy, deleteDoc, setDoc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { CheckCircle, XCircle, UserPlus, Users, Film, Mail, Shield, Clock, Search, Trash2, Edit, Save, X, Plus, GraduationCap } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
+import { useMovies } from '../context/MovieContext';
+import { searchMovies } from '../services/tmdb';
 
 const AdminDashboard = () => {
     const { t } = useLanguage();
@@ -13,11 +17,16 @@ const AdminDashboard = () => {
     const [newUserEmail, setNewUserEmail] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview, users, suggestions
+    const [activeTab, setActiveTab] = useState('overview'); // overview, users, suggestions, add_student
 
     // Edit State
     const [editingUser, setEditingUser] = useState(null);
     const [editRole, setEditRole] = useState('');
+
+    // Add Student State
+    const [studentEmail, setStudentEmail] = useState('');
+    const [studentPassword, setStudentPassword] = useState('');
+    const [creatingStudent, setCreatingStudent] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -105,6 +114,44 @@ const AdminDashboard = () => {
         }
     };
 
+    const { addMovie } = useMovies();
+
+    const handleAddToWishlist = async (suggestion) => {
+        if (!suggestion.title) return;
+        setMessage(`${t('searching') || 'Searching'}: "${suggestion.title}"...`);
+
+        try {
+            // 1. Search TMDB
+            const results = await searchMovies(suggestion.title, 'pt-BR'); // Default to PT-BR or use context language
+
+            if (results && results.length > 0) {
+                const movie = results[0];
+
+                // 2. Add to Wishlist
+                const result = await addMovie({
+                    title: movie.title,
+                    overview: movie.overview,
+                    rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
+                    poster_path: movie.poster_path,
+                    release_date: movie.release_date,
+                    tmdb_id: movie.id
+                });
+
+                if (result.skipped.length > 0) {
+                    setMessage(t('duplicateWarning') || `Movie already in wishlist: ${movie.title}`);
+                } else {
+                    setMessage(`${t('movieAdded') || 'Movie added'}: ${movie.title}`);
+                    // Optional: Update suggestion status to 'approved' or similar if you want to track it
+                }
+            } else {
+                setMessage(t('noResults') || 'Movie not found on TMDB.');
+            }
+        } catch (error) {
+            console.error("Error adding to wishlist:", error);
+            setMessage(t('errorAdding') || 'Error adding movie.');
+        }
+    };
+
     const handlePreRegister = async (e) => {
         e.preventDefault();
         if (!newUserEmail) return;
@@ -134,6 +181,49 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleCreateStudent = async (e) => {
+        e.preventDefault();
+        if (!studentEmail || !studentPassword) return;
+
+        setCreatingStudent(true);
+        setMessage(t('creatingStudent') || 'Creating student...');
+
+        // Initialize secondary app to create user without logging out admin
+        const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, studentEmail, studentPassword);
+            const user = userCredential.user;
+
+            // Create user document in Firestore (using main app's db)
+            await setDoc(doc(db, "users", user.uid), {
+                email: studentEmail,
+                role: 'student', // Force student role
+                status: 'approved', // Auto-approve
+                createdAt: new Date().toISOString(),
+                photoURL: null
+            });
+
+            // Sign out from secondary app to clean up
+            await signOut(secondaryAuth);
+
+            setMessage(t('studentCreated') || 'Student created successfully!');
+            setStudentEmail('');
+            setStudentPassword('');
+
+            // Refresh users list
+            fetchData();
+
+        } catch (error) {
+            console.error("Error creating student:", error);
+            setMessage(`${t('errorCreatingStudent') || 'Error creating student'}: ${error.message}`);
+        } finally {
+            setCreatingStudent(false);
+            // Clean up secondary app instance if possible (Firebase SDK handles this mostly, but good to know)
+        }
+    };
+
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setActiveTab(id)}
@@ -149,8 +239,6 @@ const AdminDashboard = () => {
         </button>
     );
 
-
-
     return (
         <div className="min-h-screen p-6 pb-24 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}>
             <div className="max-w-7xl mx-auto">
@@ -163,6 +251,7 @@ const AdminDashboard = () => {
                         <TabButton id="overview" label={t('pendingApprovals')} icon={Shield} />
                         <TabButton id="users" label={t('allUsers')} icon={Users} />
                         <TabButton id="suggestions" label={t('movieSuggestions')} icon={Film} />
+                        <TabButton id="add_student" label={t('addStudent') || 'Add Student'} icon={GraduationCap} />
                     </div>
                 </div>
 
@@ -399,10 +488,82 @@ const AdminDashboard = () => {
                                                         <span>{new Date(suggestion.createdAt).toLocaleDateString()}</span>
                                                     </div>
                                                 </div>
+                                                <button
+                                                    onClick={() => handleAddToWishlist(suggestion)}
+                                                    className="mt-4 w-full py-2 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2"
+                                                    style={{ backgroundColor: 'var(--text-secondary)', color: 'var(--bg-main)' }}
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                    {t('addToWishlist') || 'Add to Wishlist'}
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        )}
+
+                        {/* ADD STUDENT TAB */}
+                        {activeTab === 'add_student' && (
+                            <div className="backdrop-blur-md border rounded-3xl p-6" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
+                                        <GraduationCap className="w-6 h-6" style={{ color: 'var(--text-secondary)' }} />
+                                    </div>
+                                    <h2 className="text-xl font-bold">{t('addStudent') || 'Add Student'}</h2>
+                                </div>
+
+                                <form onSubmit={handleCreateStudent} className="space-y-4 max-w-md">
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('emailAddress')}</label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <input
+                                                type="email"
+                                                value={studentEmail}
+                                                onChange={(e) => setStudentEmail(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
+                                                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                                placeholder="student@example.com"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('password') || 'Password'}</label>
+                                        <div className="relative">
+                                            <Shield className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <input
+                                                type="password"
+                                                value={studentPassword}
+                                                onChange={(e) => setStudentPassword(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
+                                                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                                placeholder="******"
+                                                required
+                                                minLength={6}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={creatingStudent}
+                                        className="w-full py-3 font-bold rounded-xl transition-colors shadow-lg hover:opacity-90 flex justify-center items-center gap-2"
+                                        style={{ backgroundColor: 'var(--text-secondary)', color: 'var(--bg-main)' }}
+                                    >
+                                        {creatingStudent ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                {t('creating') || 'Creating...'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserPlus className="w-5 h-5" />
+                                                {t('createStudent') || 'Create Student'}
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
                             </div>
                         )}
                     </div>
