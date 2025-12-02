@@ -27,6 +27,7 @@ const Wishlist = () => {
 
     // Filters & Sorting
     const [sortBy, setSortBy] = useState('dateDesc'); // dateDesc, dateAsc, ratingDesc, titleAsc
+    const [selectedGenre, setSelectedGenre] = useState('all');
 
     // Trailer Modal
     const [trailerUrl, setTrailerUrl] = useState(null);
@@ -59,7 +60,8 @@ const Wishlist = () => {
             rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
             poster_path: movie.poster_path,
             release_date: movie.release_date,
-            tmdb_id: movie.id // Store TMDB ID for trailers
+            tmdb_id: movie.id, // Store TMDB ID for trailers
+            genre_ids: movie.genre_ids // Store genres
         });
 
         if (result.skipped.length > 0) {
@@ -126,7 +128,8 @@ const Wishlist = () => {
                             rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
                             poster_path: movie.poster_path,
                             release_date: movie.release_date,
-                            tmdb_id: movie.id
+                            tmdb_id: movie.id,
+                            genre_ids: movie.genre_ids
                         });
                     } else {
                         setProcessingStatus(`No details found for "${title}". Adding as plain text.`);
@@ -178,6 +181,12 @@ const Wishlist = () => {
     const filteredMovies = useMemo(() => {
         let result = movies.filter((m) => m.status === 'wishlist');
 
+        // Genre Filter
+        if (selectedGenre !== 'all') {
+            const genreId = parseInt(selectedGenre);
+            result = result.filter(m => m.genre_ids && m.genre_ids.includes(genreId));
+        }
+
         // Sorting
         result.sort((a, b) => {
             switch (sortBy) {
@@ -195,7 +204,7 @@ const Wishlist = () => {
         });
 
         return result;
-    }, [movies, sortBy]);
+    }, [movies, sortBy, selectedGenre]);
 
     return (
         <div className="space-y-8 relative">
@@ -277,10 +286,22 @@ const Wishlist = () => {
                             </form>
 
                             {/* Search Results */}
+                            {isSearching && (
+                                <div className="text-center p-4 text-blood-300 animate-pulse">
+                                    {t('searching') || 'Buscando...'}
+                                </div>
+                            )}
+
+                            {!isSearching && query && searchResults.length === 0 && (
+                                <div className="text-center p-4 text-gray-500">
+                                    {t('noResults') || 'Nenhum resultado encontrado.'}
+                                </div>
+                            )}
+
                             {searchResults.length > 0 && (
                                 <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
                                     {searchResults.map((movie) => (
-                                        <div key={movie.id} className="flex items-center gap-3 p-2 hover:bg-blood-800 rounded-lg group">
+                                        <div key={movie.id} className="flex items-center gap-3 p-2 hover:bg-blood-800 rounded-lg group transition-colors">
                                             {movie.poster_path ? (
                                                 <img src={getPosterUrl(movie.poster_path, 'w92')} alt={movie.title} className="w-10 h-14 object-cover rounded" />
                                             ) : (
@@ -395,6 +416,21 @@ const Wishlist = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <select
+                        value={selectedGenre}
+                        onChange={(e) => setSelectedGenre(e.target.value)}
+                        className="bg-blood-950 border border-blood-800 text-gray-300 text-sm rounded-lg focus:ring-blood-600 focus:border-blood-600 block p-2"
+                    >
+                        <option value="all">{t('genres.all') || 'All Genres'}</option>
+                        <option value="16">{t('genres.16') || 'Animation'}</option>
+                        <option value="28">{t('genres.28') || 'Action'}</option>
+                        <option value="12">{t('genres.12') || 'Adventure'}</option>
+                        <option value="35">{t('genres.35') || 'Comedy'}</option>
+                        <option value="10751">{t('genres.10751') || 'Family'}</option>
+                        <option value="14">{t('genres.14') || 'Fantasy'}</option>
+                        <option value="878">{t('genres.878') || 'Sci-Fi'}</option>
+                    </select>
+
                     <span className="text-gray-500 text-xs font-bold uppercase">{t('sortBy') || 'Sort By'}:</span>
                     <select
                         value={sortBy}

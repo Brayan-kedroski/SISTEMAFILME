@@ -21,6 +21,7 @@ const Layout = ({ children }) => {
         { path: '/wishlist', icon: Heart, label: t('nav.wishlist') || 'Wishlist' },
         { path: '/downloaded', icon: Download, label: t('nav.downloaded') || 'Downloaded' },
         { path: '/schedule', icon: Calendar, label: t('nav.schedule') || 'Schedule' },
+        { path: '/stats', icon: BarChart2, label: t('nav.stats') || 'Stats' },
         { path: '/suggestions', icon: MessageSquarePlus, label: t('nav.suggestions') || 'Suggestions' },
     ];
 

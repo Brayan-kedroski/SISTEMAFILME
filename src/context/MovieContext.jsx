@@ -140,6 +140,7 @@ export const MovieProvider = ({ children }) => {
                 poster_path: details.poster_path || '',
                 release_date: details.release_date || '',
                 tmdb_id: details.tmdb_id || null,
+                genre_ids: details.genre_ids || [],
                 createdAt: new Date().toISOString()
             });
             results.added.push(title);

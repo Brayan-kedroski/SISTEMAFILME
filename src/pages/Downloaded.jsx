@@ -11,6 +11,7 @@ const Downloaded = () => {
     // Filters & Sorting
     const [sortBy, setSortBy] = useState('dateDesc');
     const [filterLiked, setFilterLiked] = useState(false);
+    const [selectedGenre, setSelectedGenre] = useState('all');
 
     // Trailer Modal
     const [trailerUrl, setTrailerUrl] = useState(null);
@@ -54,6 +55,12 @@ const Downloaded = () => {
             result = result.filter(m => m.kidsLiked);
         }
 
+        // Genre Filter
+        if (selectedGenre !== 'all') {
+            const genreId = parseInt(selectedGenre);
+            result = result.filter(m => m.genre_ids && m.genre_ids.includes(genreId));
+        }
+
         // Sorting
         result.sort((a, b) => {
             switch (sortBy) {
@@ -71,7 +78,7 @@ const Downloaded = () => {
         });
 
         return result;
-    }, [movies, sortBy, filterLiked]);
+    }, [movies, sortBy, filterLiked, selectedGenre]);
 
     return (
         <div className="space-y-8 relative min-h-screen">
@@ -120,6 +127,21 @@ const Downloaded = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                    <select
+                        value={selectedGenre}
+                        onChange={(e) => setSelectedGenre(e.target.value)}
+                        className="bg-blood-950 border border-blood-700 text-white text-sm rounded-lg focus:ring-blood-500 focus:border-blood-500 block p-2"
+                    >
+                        <option value="all">{t('genres.all') || 'All Genres'}</option>
+                        <option value="16">{t('genres.16') || 'Animation'}</option>
+                        <option value="28">{t('genres.28') || 'Action'}</option>
+                        <option value="12">{t('genres.12') || 'Adventure'}</option>
+                        <option value="35">{t('genres.35') || 'Comedy'}</option>
+                        <option value="10751">{t('genres.10751') || 'Family'}</option>
+                        <option value="14">{t('genres.14') || 'Fantasy'}</option>
+                        <option value="878">{t('genres.878') || 'Sci-Fi'}</option>
+                    </select>
+
                     <span className="text-gray-300 text-xs font-bold uppercase">{t('sortBy') || 'Sort By'}:</span>
                     <select
                         value={sortBy}

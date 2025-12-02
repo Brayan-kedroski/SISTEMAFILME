@@ -62,7 +62,14 @@ const Login = () => {
         try {
             setError('');
             setLoading(true);
-            await login(email, password);
+
+            let loginEmail = email;
+            // If input doesn't contain '@', assume it's a Login ID and append fake domain
+            if (!email.includes('@')) {
+                loginEmail = `${email}@escola.com`;
+            }
+
+            await login(loginEmail, password);
             // Navigation will be handled by useEffect
         } catch (err) {
             if (err.code === 'auth/too-many-requests') {
@@ -181,15 +188,15 @@ const Login = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-300 ml-1">{t('emailLabel') || 'Email'}</label>
+                        <label className="text-sm font-bold text-gray-300 ml-1">{t('emailOrIdLabel') || 'Email or Login ID'}</label>
                         <div className="relative">
                             <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
                             <input
-                                type="email"
+                                type="text"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-700 rounded-xl focus:border-blue-500 focus:outline-none text-white transition-colors"
-                                placeholder={t('emailPlaceholder') || "Enter your email"}
+                                placeholder={t('emailOrIdPlaceholder') || "Enter Email or ID"}
                                 required
                             />
                         </div>

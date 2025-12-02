@@ -82,7 +82,13 @@ const Suggestions = () => {
             if (ageValue === 'L') certQuery = 'L';
 
             const response = await fetch(
-                `https://api.themoviedb.org/3/discover/movie?api_key=d4d51086088d924a6898950c47481b49&language=${language === 'pt' ? 'pt-BR' : 'en-US'}&sort_by=popularity.desc&include_adult=false&include_video=false&page=1&certification_country=BR&certification.lte=${certQuery}`
+                `https://api.themoviedb.org/3/discover/movie?language=${language === 'pt' ? 'pt-BR' : 'en-US'}&sort_by=popularity.desc&include_adult=false&include_video=false&page=1&certification_country=BR&certification.lte=${certQuery}`,
+                {
+                    headers: {
+                        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkYWJmZmI4NzVmMDUyZTY0YjNiYjIzZWIzMGZjNWZkNyIsIm5iZiI6MTc2NDM1NTQ0NS41NTksInN1YiI6IjY5MjllZDc1ZDgxMzVhZTMyNWE3NjJmNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.9wnhmLZVPgggiLrfhH615uT9RGJPFlRE7IGX4UPDP-o',
+                        'Content-Type': 'application/json'
+                    }
+                }
             );
             const data = await response.json();
             setSuggestedMovies(data.results.slice(0, 4)); // Show top 4

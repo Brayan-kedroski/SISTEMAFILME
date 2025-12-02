@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../services/firebase';
-import { collection, query, where, getDocs, addDoc, orderBy, Timestamp } from 'firebase/firestore';
+import { db, firebaseConfig } from '../services/firebase';
+import { collection, query, where, getDocs, addDoc, orderBy, Timestamp, setDoc, doc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar } from 'lucide-react';
+import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar, UserPlus, Mail, Shield } from 'lucide-react';
 
 const TeacherDashboard = () => {
     const { t } = useLanguage();
     const { currentUser } = useAuth();
-    const [activeTab, setActiveTab] = useState('attendance'); // attendance, grades
+    const [activeTab, setActiveTab] = useState('attendance'); // attendance, grades, add_student
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
@@ -22,20 +24,37 @@ const TeacherDashboard = () => {
     const [gradeSubject, setGradeSubject] = useState('');
     const [gradeType, setGradeType] = useState('exam'); // exam, homework, participation
 
+    // Add Student State
+    const [studentName, setStudentName] = useState('');
+    const [studentPassword, setStudentPassword] = useState('');
+    const [creatingStudent, setCreatingStudent] = useState(false);
+    const [generatedId, setGeneratedId] = useState('');
+
     useEffect(() => {
         fetchStudents();
     }, []);
 
     const fetchStudents = async () => {
         try {
-            const q = query(collection(db, 'users'), where('role', '==', 'user')); // Assuming 'user' role is for students
-            const snapshot = await getDocs(q);
-            const studentsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setStudents(studentsList);
+            // Fetch both 'student' and 'user' roles
+            const qStudent = query(collection(db, 'users'), where('role', '==', 'student'));
+            const qUser = query(collection(db, 'users'), where('role', '==', 'user'));
+
+            const [snapshotStudent, snapshotUser] = await Promise.all([getDocs(qStudent), getDocs(qUser)]);
+
+            const studentsList = [
+                ...snapshotStudent.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+                ...snapshotUser.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+            ];
+
+            // Remove duplicates if any (though roles should be unique)
+            const uniqueStudents = Array.from(new Map(studentsList.map(item => [item.id, item])).values());
+
+            setStudents(uniqueStudents);
 
             // Initialize attendance state
             const initialAttendance = {};
-            studentsList.forEach(s => initialAttendance[s.id] = false);
+            uniqueStudents.forEach(s => initialAttendance[s.id] = false);
             setAttendance(initialAttendance);
 
         } catch (error) {
@@ -107,6 +126,58 @@ const TeacherDashboard = () => {
         }
     };
 
+    const handleCreateStudent = async (e) => {
+        e.preventDefault();
+        if (!studentName || !studentPassword) return;
+
+        setCreatingStudent(true);
+        setMessage(t('creatingStudent') || 'Creating student...');
+        setGeneratedId('');
+
+        // Generate Login ID: firstname.lastname.random4
+        const cleanName = studentName.toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        const loginId = `${cleanName}.${randomSuffix}`;
+        const fakeEmail = `${loginId}@escola.com`;
+
+        // Initialize secondary app to create user without logging out teacher
+        const secondaryApp = initializeApp(firebaseConfig, "SecondaryTeacher");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, studentPassword);
+            const user = userCredential.user;
+
+            // Create user document in Firestore (using main app's db)
+            await setDoc(doc(db, "users", user.uid), {
+                email: fakeEmail, // Still need email for Firebase
+                loginId: loginId, // The ID student will use
+                name: studentName,
+                role: 'student',
+                status: 'approved',
+                createdAt: new Date().toISOString(),
+                photoURL: null
+            });
+
+            // Sign out from secondary app to clean up
+            await signOut(secondaryAuth);
+
+            setMessage(t('studentCreated') || 'Student created successfully!');
+            setGeneratedId(loginId); // Show the ID to teacher
+            setStudentName('');
+            setStudentPassword('');
+
+            // Refresh students list
+            fetchStudents();
+
+        } catch (error) {
+            console.error("Error creating student:", error);
+            setMessage(`${t('errorCreatingStudent') || 'Error creating student'}: ${error.message}`);
+        } finally {
+            setCreatingStudent(false);
+        }
+    };
+
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setActiveTab(id)}
@@ -130,9 +201,10 @@ const TeacherDashboard = () => {
                         {t('teacherDashboard') || 'Teacher Dashboard'}
                     </h1>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
                         <TabButton id="attendance" label={t('attendance') || 'Attendance'} icon={ClipboardList} />
                         <TabButton id="grades" label={t('grades') || 'Grades'} icon={GraduationCap} />
+                        <TabButton id="add_student" label={t('addStudent') || 'Add Student'} icon={UserPlus} />
                     </div>
                 </div>
 
@@ -140,6 +212,17 @@ const TeacherDashboard = () => {
                     <div className="p-4 rounded-xl mb-8 animate-fade-in border flex items-center gap-2" style={{ borderColor: 'var(--text-secondary)', color: 'var(--text-secondary)', backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
                         <CheckCircle className="w-5 h-5" />
                         {message}
+                    </div>
+                )}
+
+                {generatedId && (
+                    <div className="p-6 rounded-xl mb-8 animate-fade-in border border-green-500/50 bg-green-500/10 text-center">
+                        <h3 className="text-xl font-bold text-green-400 mb-2">{t('studentCreatedWithId') || 'Student Created!'}</h3>
+                        <p className="text-gray-300 mb-2">{t('loginIdLabel') || 'Login ID:'}</p>
+                        <div className="text-3xl font-mono font-bold text-white bg-black/30 p-4 rounded-xl inline-block select-all">
+                            {generatedId}
+                        </div>
+                        <p className="text-sm text-gray-400 mt-2">{t('saveIdWarning') || 'Save this ID. The student needs it to login.'}</p>
                     </div>
                 )}
 
@@ -186,11 +269,11 @@ const TeacherDashboard = () => {
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${attendance[student.id] ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-300'}`}>
-                                                    {student.email.charAt(0).toUpperCase()}
+                                                    {student.name ? student.name.charAt(0).toUpperCase() : student.email.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="overflow-hidden">
-                                                    <p className="font-bold truncate">{student.email}</p>
-                                                    <p className="text-xs opacity-50">Student</p>
+                                                    <p className="font-bold truncate">{student.name || student.email}</p>
+                                                    <p className="text-xs opacity-50 capitalize">{student.loginId || student.role}</p>
                                                 </div>
                                             </div>
                                             {attendance[student.id] && <CheckCircle className="w-5 h-5 text-green-500" />}
@@ -256,10 +339,11 @@ const TeacherDashboard = () => {
                                         >
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-gray-300">
-                                                    {student.email.charAt(0).toUpperCase()}
+                                                    {student.name ? student.name.charAt(0).toUpperCase() : student.email.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold">{student.email}</p>
+                                                    <p className="font-bold">{student.name || student.email}</p>
+                                                    <p className="text-xs opacity-50">{student.loginId}</p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -290,6 +374,73 @@ const TeacherDashboard = () => {
                                         {loading ? 'Saving...' : <><Save className="w-5 h-5" /> {t('saveGrades') || 'Save Grades'}</>}
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* ADD STUDENT TAB */}
+                        {activeTab === 'add_student' && (
+                            <div className="space-y-6">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
+                                        <UserPlus className="w-6 h-6" style={{ color: 'var(--text-secondary)' }} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">{t('addStudent') || 'Add Student'}</h2>
+                                        <p className="text-sm opacity-70">{t('createStudentAccount') || 'Create a new student account.'}</p>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={handleCreateStudent} className="space-y-4 max-w-md">
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('studentName') || 'Student Name'}</label>
+                                        <div className="relative">
+                                            <Users className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <input
+                                                type="text"
+                                                value={studentName}
+                                                onChange={(e) => setStudentName(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
+                                                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                                placeholder="Ex: Joao Silva"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('password') || 'Password'}</label>
+                                        <div className="relative">
+                                            <Shield className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <input
+                                                type="password"
+                                                value={studentPassword}
+                                                onChange={(e) => setStudentPassword(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
+                                                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                                placeholder="******"
+                                                required
+                                                minLength={6}
+                                            />
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="submit"
+                                        disabled={creatingStudent}
+                                        className="w-full py-3 font-bold rounded-xl transition-colors shadow-lg hover:opacity-90 flex justify-center items-center gap-2"
+                                        style={{ backgroundColor: 'var(--text-secondary)', color: 'var(--bg-main)' }}
+                                    >
+                                        {creatingStudent ? (
+                                            <>
+                                                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                                {t('creating') || 'Creating...'}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserPlus className="w-5 h-5" />
+                                                {t('createStudent') || 'Create Student'}
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
                             </div>
                         )}
                     </div>

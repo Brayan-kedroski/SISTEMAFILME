@@ -1,26 +1,19 @@
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY || 'd4d51086088d924a6898950c47481b49';
+const API_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJkYWJmZmI4NzVmMDUyZTY0YjNiYjIzZWIzMGZjNWZkNyIsIm5iZiI6MTc2NDM1NTQ0NS41NTksInN1YiI6IjY5MjllZDc1ZDgxMzVhZTMyNWE3NjJmNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.9wnhmLZVPgggiLrfhH615uT9RGJPFlRE7IGX4UPDP-o';
 const BASE_URL = 'https://api.themoviedb.org/3';
+
+const getHeaders = () => ({
+    'Authorization': `Bearer ${API_TOKEN}`,
+    'Content-Type': 'application/json'
+});
 
 export const searchMovies = async (query, language = 'pt-BR') => {
     if (!query) return [];
     console.log(`[TMDB] Searching for "${query}" in language: ${language}`);
 
-    if (API_KEY === 'YOUR_API_KEY_HERE') {
-        console.warn('TMDB API Key missing. Returning mock data.');
-        return [{
-            id: 1,
-            title: query,
-            overview: 'This is a mock description because no API key was provided.',
-            release_date: '2024-01-01',
-            vote_average: 7.5,
-            poster_path: null
-        }];
-    }
-
     try {
-        const url = `${BASE_URL}/search/movie?api_key=${API_KEY}&query=${encodeURIComponent(query)}&language=${language}`;
+        const url = `${BASE_URL}/search/movie?query=${encodeURIComponent(query)}&language=${language}`;
         console.log(`[TMDB] Request URL: ${url}`);
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: getHeaders() });
         const data = await response.json();
         console.log(`[TMDB] Results found: ${data.results?.length || 0}`);
         return data.results || [];
@@ -30,16 +23,25 @@ export const searchMovies = async (query, language = 'pt-BR') => {
     }
 };
 
+export const getMovieDetails = async (tmdbId, language = 'pt-BR') => {
+    try {
+        const response = await fetch(`${BASE_URL}/movie/${tmdbId}?language=${language}`, { headers: getHeaders() });
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching movie details:', error);
+        return null;
+    }
+};
+
 export const getPosterUrl = (path, size = 'w500') => {
-    if (!path) return null;
-    return `https://image.tmdb.org/t/p/${size}${path}`;
+    return path ? `https://image.tmdb.org/t/p/${size}${path}` : null;
 };
 
 export const getMovieTrailer = async (movieId, language = 'pt-BR') => {
     console.log(`[TMDB] Fetching trailer for movie ${movieId} in ${language}`);
     try {
         // First try with the requested language
-        let response = await fetch(`${BASE_URL}/movie/${movieId}/videos?api_key=${API_KEY}&language=${language}`);
+        let response = await fetch(`${BASE_URL}/movie/${movieId}/videos?language=${language}`, { headers: getHeaders() });
         let data = await response.json();
         let results = data.results || [];
 
@@ -49,7 +51,7 @@ export const getMovieTrailer = async (movieId, language = 'pt-BR') => {
         // If no trailer found in requested language, fallback to English
         if (!trailer && language !== 'en-US') {
             console.log(`[TMDB] No trailer in ${language}, trying en-US`);
-            response = await fetch(`${BASE_URL}/movie/${movieId}/videos?api_key=${API_KEY}&language=en-US`);
+            response = await fetch(`${BASE_URL}/movie/${movieId}/videos?language=en-US`, { headers: getHeaders() });
             data = await response.json();
             results = data.results || [];
             trailer = results.find(video => video.site === 'YouTube' && video.type === 'Trailer');
@@ -64,19 +66,6 @@ export const getMovieTrailer = async (movieId, language = 'pt-BR') => {
         }
     } catch (error) {
         console.error('Error fetching trailer:', error);
-        return null;
-    }
-};
-
-export const getMovieDetails = async (id, language = 'pt-BR') => {
-    try {
-        const response = await fetch(
-            `${BASE_URL}/movie/${id}?api_key=${API_KEY}&language=${language}`
-        );
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Error fetching movie details:", error);
         return null;
     }
 };

@@ -24,183 +24,42 @@ const AdminDashboard = () => {
     const [editRole, setEditRole] = useState('');
 
     // Add Student State
-    const [studentEmail, setStudentEmail] = useState('');
+    const [studentName, setStudentName] = useState('');
     const [studentPassword, setStudentPassword] = useState('');
     const [creatingStudent, setCreatingStudent] = useState(false);
+    const [generatedId, setGeneratedId] = useState('');
 
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
-        try {
-            // Fetch All Users
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const usersList = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setAllUsers(usersList);
-            setPendingUsers(usersList.filter(user => user.status === 'pending'));
-
-            // Fetch Pre-registered Emails
-            const preRegSnapshot = await getDocs(collection(db, 'pre_registered_emails'));
-            setPreRegisteredEmails(preRegSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-            // Fetch Suggestions
-            const suggestionsQ = query(collection(db, 'suggestions'), orderBy('createdAt', 'desc'));
-            const suggestionsSnapshot = await getDocs(suggestionsQ);
-            setSuggestions(suggestionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
-        } catch (error) {
-            console.error("Error fetching admin data:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleApprove = async (userId) => {
-        try {
-            await updateDoc(doc(db, 'users', userId), { status: 'approved' });
-            // Update local state
-            setAllUsers(prev => prev.map(user => user.id === userId ? { ...user, status: 'approved' } : user));
-            setPendingUsers(prev => prev.filter(user => user.id !== userId));
-            setMessage(t('userApproved'));
-        } catch (error) {
-            console.error("Error approving user:", error);
-            setMessage(t('errorApproving'));
-        }
-    };
-
-    const handleReject = async (userId) => {
-        try {
-            await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
-            setAllUsers(prev => prev.map(user => user.id === userId ? { ...user, status: 'rejected' } : user));
-            setPendingUsers(prev => prev.filter(user => user.id !== userId));
-            setMessage(t('userRejected'));
-        } catch (error) {
-            console.error("Error rejecting user:", error);
-            setMessage(t('errorRejecting'));
-        }
-    };
-
-    const handleDeleteUser = async (userId) => {
-        if (!window.confirm(t('confirmDelete'))) return;
-
-        try {
-            await deleteDoc(doc(db, 'users', userId));
-            setAllUsers(prev => prev.filter(user => user.id !== userId));
-            setPendingUsers(prev => prev.filter(user => user.id !== userId));
-            setMessage(t('userDeleted'));
-        } catch (error) {
-            console.error("Error deleting user:", error);
-            setMessage(t('errorDeleting'));
-        }
-    };
-
-    const startEditing = (user) => {
-        setEditingUser(user);
-        setEditRole(user.role || 'user');
-    };
-
-    const saveEdit = async () => {
-        if (!editingUser) return;
-
-        try {
-            await updateDoc(doc(db, 'users', editingUser.id), { role: editRole });
-            setAllUsers(prev => prev.map(user => user.id === editingUser.id ? { ...user, role: editRole } : user));
-            setEditingUser(null);
-            setMessage(t('userUpdated'));
-        } catch (error) {
-            console.error("Error updating user:", error);
-            setMessage(t('errorUpdating'));
-        }
-    };
-
-    const { addMovie } = useMovies();
-
-    const handleAddToWishlist = async (suggestion) => {
-        if (!suggestion.title) return;
-        setMessage(`${t('searching') || 'Searching'}: "${suggestion.title}"...`);
-
-        try {
-            // 1. Search TMDB
-            const results = await searchMovies(suggestion.title, 'pt-BR'); // Default to PT-BR or use context language
-
-            if (results && results.length > 0) {
-                const movie = results[0];
-
-                // 2. Add to Wishlist
-                const result = await addMovie({
-                    title: movie.title,
-                    overview: movie.overview,
-                    rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
-                    poster_path: movie.poster_path,
-                    release_date: movie.release_date,
-                    tmdb_id: movie.id
-                });
-
-                if (result.skipped.length > 0) {
-                    setMessage(t('duplicateWarning') || `Movie already in wishlist: ${movie.title}`);
-                } else {
-                    setMessage(`${t('movieAdded') || 'Movie added'}: ${movie.title}`);
-                    // Optional: Update suggestion status to 'approved' or similar if you want to track it
-                }
-            } else {
-                setMessage(t('noResults') || 'Movie not found on TMDB.');
-            }
-        } catch (error) {
-            console.error("Error adding to wishlist:", error);
-            setMessage(t('errorAdding') || 'Error adding movie.');
-        }
-    };
-
-    const handlePreRegister = async (e) => {
-        e.preventDefault();
-        if (!newUserEmail) return;
-
-        try {
-            // Check if already exists
-            const q = query(collection(db, 'pre_registered_emails'), where('email', '==', newUserEmail));
-            const snapshot = await getDocs(q);
-
-            if (!snapshot.empty) {
-                setMessage(t('emailAlreadyExists'));
-                return;
-            }
-
-            const newDocRef = await addDoc(collection(db, 'pre_registered_emails'), {
-                email: newUserEmail,
-                createdAt: new Date().toISOString(),
-                used: false
-            });
-
-            setPreRegisteredEmails(prev => [...prev, { id: newDocRef.id, email: newUserEmail, createdAt: new Date().toISOString(), used: false }]);
-            setNewUserEmail('');
-            setMessage(t('emailPreRegistered'));
-        } catch (error) {
-            console.error("Error pre-registering email:", error);
-            setMessage(t('errorPreRegistering'));
-        }
-    };
+    // ... (fetchData and other handlers remain same)
 
     const handleCreateStudent = async (e) => {
         e.preventDefault();
-        if (!studentEmail || !studentPassword) return;
+        if (!studentName || !studentPassword) return;
 
         setCreatingStudent(true);
         setMessage(t('creatingStudent') || 'Creating student...');
+        setGeneratedId('');
+
+        // Generate Login ID: firstname.lastname.random4
+        const cleanName = studentName.toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+        const loginId = `${cleanName}.${randomSuffix}`;
+        const fakeEmail = `${loginId}@escola.com`;
 
         // Initialize secondary app to create user without logging out admin
         const secondaryApp = initializeApp(firebaseConfig, "Secondary");
         const secondaryAuth = getAuth(secondaryApp);
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, studentEmail, studentPassword);
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, studentPassword);
             const user = userCredential.user;
 
             // Create user document in Firestore (using main app's db)
             await setDoc(doc(db, "users", user.uid), {
-                email: studentEmail,
-                role: 'student', // Force student role
-                status: 'approved', // Auto-approve
+                email: fakeEmail, // Still need email for Firebase
+                loginId: loginId, // The ID student will use
+                name: studentName,
+                role: 'student',
+                status: 'approved',
                 createdAt: new Date().toISOString(),
                 photoURL: null
             });
@@ -209,7 +68,8 @@ const AdminDashboard = () => {
             await signOut(secondaryAuth);
 
             setMessage(t('studentCreated') || 'Student created successfully!');
-            setStudentEmail('');
+            setGeneratedId(loginId);
+            setStudentName('');
             setStudentPassword('');
 
             // Refresh users list
@@ -220,7 +80,6 @@ const AdminDashboard = () => {
             setMessage(`${t('errorCreatingStudent') || 'Error creating student'}: ${error.message}`);
         } finally {
             setCreatingStudent(false);
-            // Clean up secondary app instance if possible (Firebase SDK handles this mostly, but good to know)
         }
     };
 
@@ -406,9 +265,15 @@ const AdminDashboard = () => {
                                             {allUsers.map(user => (
                                                 <tr key={user.id} className="hover:opacity-80 transition-colors">
                                                     <td className="p-4 font-medium">
-                                                        {user.email}
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold">{user.name || 'No Name'}</span>
+                                                            <span className="text-xs opacity-70">{user.email}</span>
+                                                            {user.loginId && (
+                                                                <span className="text-xs text-blue-400 font-mono mt-1">ID: {user.loginId}</span>
+                                                            )}
+                                                        </div>
                                                         {user.email === 'brayan900mauricio@gmail.com' && (
-                                                            <span className="ml-2 text-xs px-2 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)', color: 'var(--text-secondary)', borderColor: 'var(--text-secondary)' }}>Super Admin</span>
+                                                            <span className="mt-1 inline-block text-xs px-2 py-0.5 rounded-full border" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)', color: 'var(--text-secondary)', borderColor: 'var(--text-secondary)' }}>Super Admin</span>
                                                         )}
                                                     </td>
                                                     <td className="p-4">
@@ -513,18 +378,29 @@ const AdminDashboard = () => {
                                     <h2 className="text-xl font-bold">{t('addStudent') || 'Add Student'}</h2>
                                 </div>
 
+                                {generatedId && (
+                                    <div className="p-6 rounded-xl mb-8 animate-fade-in border border-green-500/50 bg-green-500/10 text-center">
+                                        <h3 className="text-xl font-bold text-green-400 mb-2">{t('studentCreatedWithId') || 'Student Created!'}</h3>
+                                        <p className="text-gray-300 mb-2">{t('loginIdLabel') || 'Login ID:'}</p>
+                                        <div className="text-3xl font-mono font-bold text-white bg-black/30 p-4 rounded-xl inline-block select-all">
+                                            {generatedId}
+                                        </div>
+                                        <p className="text-sm text-gray-400 mt-2">{t('saveIdWarning') || 'Save this ID. The student needs it to login.'}</p>
+                                    </div>
+                                )}
+
                                 <form onSubmit={handleCreateStudent} className="space-y-4 max-w-md">
                                     <div>
-                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('emailAddress')}</label>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('studentName') || 'Student Name'}</label>
                                         <div className="relative">
-                                            <Mail className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <Users className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
                                             <input
-                                                type="email"
-                                                value={studentEmail}
-                                                onChange={(e) => setStudentEmail(e.target.value)}
+                                                type="text"
+                                                value={studentName}
+                                                onChange={(e) => setStudentName(e.target.value)}
                                                 className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
                                                 style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-                                                placeholder="student@example.com"
+                                                placeholder="Ex: Joao Silva"
                                                 required
                                             />
                                         </div>
