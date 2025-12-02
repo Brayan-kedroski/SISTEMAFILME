@@ -185,10 +185,9 @@ const AdminDashboard = () => {
             // 2. Delete each student (from Firestore 'users' collection)
             // Note: This only deletes from Firestore. Deleting from Auth requires Admin SDK or Cloud Functions.
             // For this client-side demo, we'll just delete the Firestore record which effectively removes them from the app.
-            const batch = [];
-            snapshot.docs.forEach(doc => {
-                deleteDoc(doc.ref);
-            });
+            // 2. Delete each student (from Firestore 'users' collection)
+            const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+            await Promise.all(deletePromises);
 
             // 3. Delete the class itself
             await deleteDoc(doc(db, 'classes', classId));

@@ -5,7 +5,10 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar, UserPlus, Mail, Shield, Trash2, Edit, BookOpen, Clock, Printer } from 'lucide-react';
+import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar, UserPlus, Mail, Shield, Trash2, Edit, BookOpen, Clock, Printer, FileDown } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { saveAs } from 'file-saver';
 
 const TeacherDashboard = () => {
     const { t } = useLanguage();
@@ -336,6 +339,116 @@ const TeacherDashboard = () => {
         }
     };
 
+    const generatePDF = (type) => {
+        try {
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(18);
+            doc.text('ERP Escola - Relatório', 14, 22);
+
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`Professor: ${currentUser.email}`, 14, 30);
+            doc.text(`Data: ${new Date().toLocaleDateString()}`, 14, 36);
+
+            if (type === 'history') {
+                doc.text('Histórico de Notas', 14, 45);
+
+                const tableColumn = ["Data", "Matéria", "Tipo", "Aluno", "Nota"];
+                const tableRows = [];
+
+                gradesHistory.forEach(grade => {
+                    Object.entries(grade.scores).forEach(([studentId, score]) => {
+                        const student = students.find(s => s.id === studentId);
+                        if (student) {
+                            const gradeDate = new Date(grade.createdAt).toLocaleDateString();
+                            const gradeData = [
+                                gradeDate,
+                                grade.subject,
+                                grade.type,
+                                student.name || student.email,
+                                score
+                            ];
+                            tableRows.push(gradeData);
+                        }
+                    });
+                });
+
+                autoTable(doc, {
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: 50,
+                });
+
+                // Open in new tab
+                console.log("Opening PDF for history...");
+                const pdfData = doc.output('arraybuffer');
+                const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+                const url = URL.createObjectURL(pdfBlob);
+                window.open(url, '_blank');
+            } else if (type === 'report') {
+                doc.text(`Relatório Diário - ${reportDate}`, 14, 45);
+
+                // Attendance Table
+                doc.text('Presença', 14, 55);
+                const attColumn = ["Aluno", "Status"];
+                const attRows = [];
+
+                if (reportData.attendance && reportData.attendance.length > 0) {
+                    reportData.attendance.forEach(record => {
+                        Object.entries(record.attendance).forEach(([studentId, present]) => {
+                            const student = students.find(s => s.id === studentId);
+                            if (student) {
+                                attRows.push([student.name || student.email, present ? 'Presente' : 'Ausente']);
+                            }
+                        });
+                    });
+                }
+
+                autoTable(doc, {
+                    head: [attColumn],
+                    body: attRows,
+                    startY: 60,
+                });
+
+                // Grades Table
+                const finalY = doc.lastAutoTable.finalY || 60;
+                doc.text('Notas', 14, finalY + 10);
+
+                const gradeColumn = ["Matéria", "Aluno", "Nota"];
+                const gradeRows = [];
+
+                if (reportData.grades && reportData.grades.length > 0) {
+                    reportData.grades.forEach(grade => {
+                        Object.entries(grade.scores).forEach(([studentId, score]) => {
+                            const student = students.find(s => s.id === studentId);
+                            if (student) {
+                                gradeRows.push([grade.subject, student.name || student.email, score]);
+                            }
+                        });
+                    });
+                }
+
+                autoTable(doc, {
+                    head: [gradeColumn],
+                    body: gradeRows,
+                    startY: finalY + 15,
+                });
+
+                // Open in new tab
+                console.log("Opening PDF for report...");
+                const pdfData = doc.output('arraybuffer');
+                const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+                const url = URL.createObjectURL(pdfBlob);
+                window.open(url, '_blank');
+            }
+        } catch (error) {
+            console.error("PDF Generation Error:", error);
+            alert("Erro ao gerar PDF: " + error.message);
+        }
+    };
+
     const TabButton = ({ id, label, icon: Icon }) => (
         <button
             onClick={() => setActiveTab(id)}
@@ -574,17 +687,17 @@ const TeacherDashboard = () => {
                                     </div>
                                     <div className="ml-auto">
                                         <button
-                                            onClick={() => window.print()}
+                                            onClick={() => generatePDF('history')}
                                             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-gray-300 hover:text-white flex items-center gap-2"
-                                            title={t('print') || 'Print'}
+                                            title={t('downloadPDF') || 'Download PDF'}
                                         >
-                                            <Printer className="w-5 h-5" />
-                                            <span className="hidden md:inline text-sm font-bold">{t('print') || 'Print'}</span>
+                                            <FileDown className="w-5 h-5" />
+                                            <span className="hidden md:inline text-sm font-bold">{t('downloadPDF') || 'Download PDF'}</span>
                                         </button>
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
+                                <div className="hidden md:block bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left border-collapse">
                                             <thead>
@@ -652,6 +765,62 @@ const TeacherDashboard = () => {
                                         </table>
                                     </div>
                                 </div>
+
+                                {/* Mobile Card View for History */}
+                                <div className="md:hidden space-y-4">
+                                    {gradesHistory.map((grade) => (
+                                        <React.Fragment key={grade.id}>
+                                            {Object.entries(grade.scores).map(([studentId, score]) => {
+                                                const student = students.find(s => s.id === studentId);
+                                                if (!student) return null;
+                                                return (
+                                                    <div key={`${grade.id}-${studentId}`} className="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div>
+                                                                <p className="font-bold text-lg text-white">{student.name}</p>
+                                                                <p className="text-xs text-gray-400">{new Date(grade.createdAt).toLocaleDateString()}</p>
+                                                            </div>
+                                                            <span className="text-xs px-2 py-1 rounded bg-slate-700 font-bold uppercase text-gray-300">{grade.type}</span>
+                                                        </div>
+
+                                                        <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                                                            <div>
+                                                                <p className="text-xs text-gray-400 uppercase tracking-wider">Subject</p>
+                                                                <p className="font-bold text-yellow-500">{grade.subject}</p>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <p className="text-xs text-gray-400 uppercase tracking-wider">Grade</p>
+                                                                <input
+                                                                    type="number"
+                                                                    min="0" max="10" step="0.1"
+                                                                    defaultValue={score}
+                                                                    onBlur={(e) => {
+                                                                        if (e.target.value !== score) {
+                                                                            handleUpdateGrade(grade.id, student.id, e.target.value);
+                                                                        }
+                                                                    }}
+                                                                    className="w-16 bg-transparent border-b border-gray-600 text-center focus:border-yellow-500 outline-none font-mono font-bold text-lg"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-3 flex justify-end">
+                                                            <button
+                                                                onClick={() => handleDeleteGrade(grade.id)}
+                                                                className="text-red-400 text-sm flex items-center gap-1 hover:text-red-300"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" /> Delete Entry
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    ))}
+                                    {gradesHistory.length === 0 && (
+                                        <div className="text-center py-8 opacity-50 italic">No grades history found.</div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
@@ -668,11 +837,11 @@ const TeacherDashboard = () => {
                                     </div>
                                     <div className="ml-auto flex items-center gap-2">
                                         <button
-                                            onClick={() => window.print()}
+                                            onClick={() => generatePDF('report')}
                                             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-gray-300 hover:text-white"
-                                            title={t('print') || 'Print'}
+                                            title={t('downloadPDF') || 'Download PDF'}
                                         >
-                                            <Printer className="w-5 h-5" />
+                                            <FileDown className="w-5 h-5" />
                                         </button>
                                         <input
                                             type="date"
