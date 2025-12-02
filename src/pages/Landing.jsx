@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Film, Star, Shield, Calendar, Heart } from 'lucide-react';
+import { Film, Star, Shield, Calendar, Heart, School } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 

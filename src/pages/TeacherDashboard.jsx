@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { db, firebaseConfig } from '../services/firebase';
-import { collection, query, where, getDocs, addDoc, orderBy, Timestamp, setDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, orderBy, Timestamp, setDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar, UserPlus, Mail, Shield } from 'lucide-react';
+import { Users, ClipboardList, GraduationCap, Save, CheckCircle, Calendar, UserPlus, Mail, Shield, Trash2, Edit, BookOpen, Clock, Printer } from 'lucide-react';
 
 const TeacherDashboard = () => {
     const { t } = useLanguage();
     const { currentUser } = useAuth();
     const [activeTab, setActiveTab] = useState('attendance'); // attendance, grades, add_student
     const [students, setStudents] = useState([]);
+    const [filteredStudents, setFilteredStudents] = useState([]);
+    const [classes, setClasses] = useState([]);
+    const [selectedClass, setSelectedClass] = useState('all');
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
 
@@ -31,8 +34,33 @@ const TeacherDashboard = () => {
     const [generatedId, setGeneratedId] = useState('');
 
     useEffect(() => {
-        fetchStudents();
+        fetchData();
     }, []);
+
+    useEffect(() => {
+        if (selectedClass === 'all') {
+            setFilteredStudents(students);
+        } else {
+            setFilteredStudents(students.filter(s => s.studentClass === selectedClass));
+        }
+    }, [selectedClass, students]);
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            // Fetch Classes
+            const classesQ = query(collection(db, 'classes'), orderBy('name'));
+            const classesSnapshot = await getDocs(classesQ);
+            setClasses(classesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch Students
+            await fetchStudents();
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchStudents = async () => {
         try {
@@ -51,6 +79,7 @@ const TeacherDashboard = () => {
             const uniqueStudents = Array.from(new Map(studentsList.map(item => [item.id, item])).values());
 
             setStudents(uniqueStudents);
+            setFilteredStudents(uniqueStudents); // Initialize filtered list
 
             // Initialize attendance state
             const initialAttendance = {};
@@ -59,8 +88,6 @@ const TeacherDashboard = () => {
 
         } catch (error) {
             console.error("Error fetching students:", error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -85,7 +112,7 @@ const TeacherDashboard = () => {
             setTimeout(() => setMessage(''), 3000);
         } catch (error) {
             console.error("Error saving attendance:", error);
-            setMessage(t('errorSaving') || 'Error saving data.');
+            setMessage(`${t('errorSaving') || 'Error saving data'}: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -96,6 +123,105 @@ const TeacherDashboard = () => {
             ...prev,
             [studentId]: value
         }));
+    };
+
+    const [gradesHistory, setGradesHistory] = useState([]);
+    const [editingGrade, setEditingGrade] = useState(null); // { id, ...data }
+
+    // Daily Report State
+    const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+    const [reportData, setReportData] = useState({ attendance: [], grades: [] });
+
+    const [generatingReport, setGeneratingReport] = useState(false);
+    const [debugData, setDebugData] = useState({ allAttendance: [], allGrades: [], error: null }); // DEBUG
+
+    useEffect(() => {
+        if (activeTab === 'history') {
+            fetchGradesHistory();
+        }
+        if (activeTab === 'report') {
+            fetchDailyReport();
+        }
+    }, [activeTab, reportDate]);
+
+    const fetchDailyReport = async () => {
+        setGeneratingReport(true);
+        try {
+            // 1. Fetch Attendance for the date
+            const qAttendance = query(
+                collection(db, 'attendance'),
+                where('date', '==', reportDate),
+                where('teacherId', '==', currentUser.uid)
+            );
+            const attendanceSnapshot = await getDocs(qAttendance);
+            const attendanceDocs = attendanceSnapshot.docs.map(doc => doc.data());
+
+            // 2. Fetch Grades created on that date (approximate by string match or range if needed, but simple date string match for now if stored)
+            // Note: Grades are stored with 'date' field which is ISO string. We need to filter client side or use range query.
+            // Let's use the 'date' field in grades which seems to be ISO. We'll filter client side for simplicity if volume is low, or better, query by range.
+            // Actually, I see `date: new Date().toISOString()` in saveGrades.
+            // Let's query all grades for this teacher and filter by date string match (YYYY-MM-DD).
+
+            // Optimization: Query by range for the day
+            const startOfDay = new Date(reportDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(reportDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            // Optimization: Fetch all grades for teacher and filter client-side to avoid Composite Index requirement
+            const qGrades = query(
+                collection(db, 'grades'),
+                where('teacherId', '==', currentUser.uid)
+            );
+            const gradesSnapshot = await getDocs(qGrades);
+            const gradesDocs = gradesSnapshot.docs
+                .map(doc => doc.data())
+                .filter(g => {
+                    return g.createdAt >= startOfDay.toISOString() && g.createdAt <= endOfDay.toISOString();
+                });
+
+            setReportData({
+                attendance: attendanceDocs,
+                grades: gradesDocs
+            });
+
+            // DEBUG: Fetch all data for teacher to see what's wrong
+            const qAllAtt = query(collection(db, 'attendance'), where('teacherId', '==', currentUser.uid));
+            const allAttSnap = await getDocs(qAllAtt);
+
+            const qAllGrades = query(collection(db, 'grades'), where('teacherId', '==', currentUser.uid));
+            const allGradesSnap = await getDocs(qAllGrades);
+
+            // Sort client-side
+            const allAtt = allAttSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            const allGrades = allGradesSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+            setDebugData({
+                allAttendance: allAtt,
+                allGrades: allGrades,
+                error: null
+            });
+
+        } catch (error) {
+            console.error("Error fetching report:", error);
+            setDebugData(prev => ({ ...prev, error: error.message }));
+        } finally {
+            setGeneratingReport(false);
+        }
+    };
+
+    const fetchGradesHistory = async () => {
+        try {
+            // Optimization: Remove orderBy to avoid Composite Index requirement
+            const q = query(collection(db, 'grades'), where('teacherId', '==', currentUser.uid));
+            const snapshot = await getDocs(q);
+            // Client-side sort
+            const grades = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            grades.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setGradesHistory(grades);
+        } catch (error) {
+            console.error("Error fetching grades history:", error);
+        }
     };
 
     const saveGrades = async () => {
@@ -117,12 +243,44 @@ const TeacherDashboard = () => {
             setMessage(t('gradesSaved') || 'Grades saved successfully!');
             setGrades({});
             setGradeSubject('');
+            fetchGradesHistory(); // Refresh list
             setTimeout(() => setMessage(''), 3000);
         } catch (error) {
             console.error("Error saving grades:", error);
-            setMessage(t('errorSaving') || 'Error saving data.');
+            setMessage(`${t('errorSaving') || 'Error saving data'}: ${error.message}`);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUpdateGrade = async (gradeId, studentId, newScore) => {
+        try {
+            const gradeDoc = gradesHistory.find(g => g.id === gradeId);
+            if (!gradeDoc) return;
+
+            const updatedScores = { ...gradeDoc.scores, [studentId]: newScore };
+
+            await updateDoc(doc(db, 'grades', gradeId), {
+                scores: updatedScores
+            });
+
+            setGradesHistory(prev => prev.map(g => g.id === gradeId ? { ...g, scores: updatedScores } : g));
+            setMessage('Grade updated!');
+            setTimeout(() => setMessage(''), 2000);
+        } catch (error) {
+            console.error("Error updating grade:", error);
+            setMessage('Error updating grade.');
+        }
+    };
+
+    const handleDeleteGradeReport = async (gradeId) => {
+        if (!window.confirm('Delete this grade report?')) return;
+        try {
+            await deleteDoc(doc(db, 'grades', gradeId));
+            setGradesHistory(prev => prev.filter(g => g.id !== gradeId));
+            setMessage('Report deleted.');
+        } catch (error) {
+            console.error("Error deleting report:", error);
         }
     };
 
@@ -196,14 +354,37 @@ const TeacherDashboard = () => {
     return (
         <div className="min-h-screen p-6 pb-24 transition-colors duration-300" style={{ backgroundColor: 'var(--bg-main)', color: 'var(--text-primary)' }}>
             <div className="max-w-5xl mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <h1 className="text-3xl font-bold" style={{ color: 'var(--text-secondary)' }}>
-                        {t('teacherDashboard') || 'Teacher Dashboard'}
-                    </h1>
+                <div className="flex flex-col gap-6 mb-8">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <h1 className="text-3xl font-bold" style={{ color: 'var(--text-secondary)' }}>
+                            {t('teacherDashboard') || 'Teacher Dashboard'}
+                        </h1>
 
-                    <div className="flex gap-3 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
+                        <div className="relative group w-full md:w-auto">
+                            <div className="flex items-center gap-2 bg-slate-800 rounded-xl px-4 py-2 border border-slate-700 hover:border-slate-500 transition-colors cursor-pointer w-full md:w-auto">
+                                <BookOpen className="w-4 h-4 text-yellow-500" />
+                                <select
+                                    value={selectedClass}
+                                    onChange={(e) => setSelectedClass(e.target.value)}
+                                    className="bg-transparent text-sm font-bold text-white focus:outline-none cursor-pointer appearance-none pr-8 w-full md:min-w-[180px]"
+                                >
+                                    <option value="all" className="bg-slate-800 text-white">Todas as Turmas</option>
+                                    {classes.map(cls => (
+                                        <option key={cls.id} value={cls.name} className="bg-slate-800 text-white">{cls.name}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 pb-2 border-b border-gray-800">
                         <TabButton id="attendance" label={t('attendance') || 'Attendance'} icon={ClipboardList} />
-                        <TabButton id="grades" label={t('grades') || 'Grades'} icon={GraduationCap} />
+                        <TabButton id="grades" label={t('launchGradesTab') || 'Launch Grades'} icon={GraduationCap} />
+                        <TabButton id="history" label={t('history') || 'History'} icon={Clock} />
+                        <TabButton id="report" label={t('dailyReport') || 'Daily Report'} icon={Calendar} />
                         <TabButton id="add_student" label={t('addStudent') || 'Add Student'} icon={UserPlus} />
                     </div>
                 </div>
@@ -256,7 +437,7 @@ const TeacherDashboard = () => {
                                 </div>
 
                                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                                    {students.map(student => (
+                                    {filteredStudents.map(student => (
                                         <div
                                             key={student.id}
                                             onClick={() => handleAttendanceChange(student.id)}
@@ -331,7 +512,7 @@ const TeacherDashboard = () => {
                                 </div>
 
                                 <div className="space-y-3">
-                                    {students.map(student => (
+                                    {filteredStudents.map(student => (
                                         <div
                                             key={student.id}
                                             className="p-4 rounded-xl border flex items-center justify-between"
@@ -373,6 +554,266 @@ const TeacherDashboard = () => {
                                     >
                                         {loading ? 'Saving...' : <><Save className="w-5 h-5" /> {t('saveGrades') || 'Save Grades'}</>}
                                     </button>
+                                </div>
+
+                            </div>
+                        )}
+
+
+
+                        {/* HISTORY TAB */}
+                        {activeTab === 'history' && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
+                                        <Clock className="w-6 h-6" style={{ color: 'var(--text-secondary)' }} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">{t('gradesHistory') || 'Grades History'}</h2>
+                                        <p className="text-sm opacity-70">{t('gradesHistoryDesc') || 'View all grades launched.'}</p>
+                                    </div>
+                                    <div className="ml-auto">
+                                        <button
+                                            onClick={() => window.print()}
+                                            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-gray-300 hover:text-white flex items-center gap-2"
+                                            title={t('print') || 'Print'}
+                                        >
+                                            <Printer className="w-5 h-5" />
+                                            <span className="hidden md:inline text-sm font-bold">{t('print') || 'Print'}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-slate-800/50 rounded-2xl border border-slate-700 overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-slate-700 bg-slate-800/80 text-xs uppercase tracking-wider opacity-70">
+                                                    <th className="p-4">Date</th>
+                                                    <th className="p-4">Subject</th>
+                                                    <th className="p-4">Type</th>
+                                                    <th className="p-4">Student</th>
+                                                    <th className="p-4">Grade</th>
+                                                    <th className="p-4 text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-700">
+                                                {gradesHistory.map((grade) => (
+                                                    <React.Fragment key={grade.id}>
+                                                        {Object.entries(grade.scores).map(([studentId, score]) => {
+                                                            const student = students.find(s => s.id === studentId);
+                                                            if (!student) return null;
+                                                            return (
+                                                                <tr key={`${grade.id}-${studentId}`} className="hover:bg-slate-700/30 transition-colors">
+                                                                    <td className="p-4 text-sm whitespace-nowrap">
+                                                                        {new Date(grade.createdAt).toLocaleDateString()}
+                                                                        <span className="block text-xs opacity-50">{new Date(grade.createdAt).toLocaleTimeString()}</span>
+                                                                    </td>
+                                                                    <td className="p-4 font-bold text-yellow-500">{grade.subject}</td>
+                                                                    <td className="p-4">
+                                                                        <span className="text-xs px-2 py-1 rounded bg-slate-700 font-bold uppercase">{grade.type}</span>
+                                                                    </td>
+                                                                    <td className="p-4 font-medium">{student.name}</td>
+                                                                    <td className="p-4">
+                                                                        <input
+                                                                            type="number"
+                                                                            min="0" max="10" step="0.1"
+                                                                            defaultValue={score}
+                                                                            onBlur={(e) => {
+                                                                                if (e.target.value !== score) {
+                                                                                    handleUpdateGrade(grade.id, student.id, e.target.value);
+                                                                                }
+                                                                            }}
+                                                                            className="w-16 bg-slate-900/50 border-b border-gray-600 text-center focus:border-yellow-500 outline-none p-1 rounded font-mono font-bold"
+                                                                        />
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <button
+                                                                            onClick={() => handleDeleteGrade(grade.id)}
+                                                                            className="p-2 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
+                                                                            title="Delete entire grade entry"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </React.Fragment>
+                                                ))}
+                                                {gradesHistory.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan="6" className="p-8 text-center opacity-50 italic">
+                                                            No grades history found.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* DAILY REPORT TAB */}
+                        {activeTab === 'report' && (
+                            <div className="space-y-6 animate-fade-in">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
+                                        <Calendar className="w-6 h-6" style={{ color: 'var(--text-secondary)' }} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-xl font-bold">{t('dailyReport') || 'Daily Report'}</h2>
+                                        <p className="text-sm opacity-70">{t('dailyReportDesc') || 'View attendance and grades for a specific day.'}</p>
+                                    </div>
+                                    <div className="ml-auto flex items-center gap-2">
+                                        <button
+                                            onClick={() => window.print()}
+                                            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-gray-300 hover:text-white"
+                                            title={t('print') || 'Print'}
+                                        >
+                                            <Printer className="w-5 h-5" />
+                                        </button>
+                                        <input
+                                            type="date"
+                                            value={reportDate}
+                                            onChange={(e) => setReportDate(e.target.value)}
+                                            className="p-2 rounded-lg border bg-slate-800 text-white border-slate-700 focus:border-yellow-500 outline-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                {generatingReport ? (
+                                    <div className="flex justify-center py-10">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: 'var(--text-secondary)' }}></div>
+                                    </div>
+                                ) : (
+                                    <div className="grid gap-6 md:grid-cols-2">
+                                        {/* Attendance Section */}
+                                        <div className="p-5 rounded-2xl border bg-slate-900/50 border-slate-800">
+                                            <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">
+                                                <ClipboardList className="w-5 h-5 text-blue-400" />
+                                                {t('attendance') || 'Attendance'}
+                                            </h3>
+
+                                            {reportData.attendance.length === 0 ? (
+                                                <div className="text-center py-8 opacity-50">
+                                                    <p className="text-sm italic">No attendance records found for this date.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {reportData.attendance.map((record, idx) => (
+                                                        <div key={idx} className="bg-slate-800/50 p-4 rounded-xl">
+                                                            <p className="text-xs opacity-50 mb-3 flex items-center gap-1">
+                                                                <Calendar className="w-3 h-3" />
+                                                                Recorded at: {new Date(record.createdAt).toLocaleTimeString()}
+                                                            </p>
+                                                            <div className="space-y-2">
+                                                                {Object.entries(record.records).map(([studentId, present]) => {
+                                                                    const student = students.find(s => s.id === studentId);
+                                                                    // Filter by class if selected
+                                                                    if (student && selectedClass !== 'all' && student.studentClass !== selectedClass) return null;
+
+                                                                    return (
+                                                                        <div key={studentId} className="flex justify-between items-center text-sm border-b border-gray-700/30 pb-2 last:border-0">
+                                                                            <span className="font-medium">{student ? (student.name || student.email) : <span className="text-red-400 italic">Unknown Student ({studentId})</span>}</span>
+                                                                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${present ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                                                                                {present ? "Present" : "Absent"}
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Grades Section */}
+                                        <div className="p-5 rounded-2xl border bg-slate-900/50 border-slate-800">
+                                            <h3 className="font-bold mb-4 flex items-center gap-2 text-lg">
+                                                <GraduationCap className="w-5 h-5 text-yellow-400" />
+                                                {t('gradesLaunched') || 'Grades Launched'}
+                                            </h3>
+
+                                            {reportData.grades.length === 0 ? (
+                                                <div className="text-center py-8 opacity-50">
+                                                    <p className="text-sm italic">No grades launched on this date.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    {reportData.grades.map((grade, idx) => (
+                                                        <div key={idx} className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                                                            <div className="flex justify-between items-center mb-3">
+                                                                <span className="font-bold text-yellow-500 text-lg">{grade.subject}</span>
+                                                                <span className="text-xs px-2 py-1 rounded bg-slate-700 uppercase tracking-wider font-bold">{grade.type}</span>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {Object.entries(grade.scores).map(([studentId, score]) => {
+                                                                    const student = students.find(s => s.id === studentId);
+                                                                    // Filter by class if selected
+                                                                    if (student && selectedClass !== 'all' && student.studentClass !== selectedClass) return null;
+
+                                                                    return (
+                                                                        <div key={studentId} className="flex justify-between items-center text-sm bg-slate-900/30 p-2 rounded">
+                                                                            <span className="opacity-80">{student ? (student.name || student.email) : <span className="text-red-400 italic">Unknown Student ({studentId})</span>}</span>
+                                                                            <span className="font-mono font-bold text-white bg-slate-700 px-2 py-0.5 rounded">{score}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* DEBUG SECTION */}
+                                <div className="mt-8 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
+                                    <h4 className="font-bold text-red-400 mb-2">Debug Info (Conectado ao Firebase)</h4>
+                                    <p className="text-xs text-gray-400 mb-2">Teacher ID: {currentUser.uid}</p>
+                                    <p className="text-xs text-gray-400 mb-2">Query Date: {reportDate}</p>
+                                    <p className="text-xs text-gray-500 mb-4">Last Check: {new Date().toLocaleTimeString()}</p>
+
+                                    {debugData.error && (
+                                        <div className="bg-red-900/50 p-3 rounded mb-4 border border-red-500 text-red-200 text-xs font-mono">
+                                            ERROR: {debugData.error}
+                                        </div>
+                                    )}
+
+                                    <div className="grid md:grid-cols-2 gap-4">
+                                        <div>
+                                            <h5 className="font-bold text-xs uppercase text-gray-500 mb-2">All Attendance Records ({debugData.allAttendance.length})</h5>
+                                            <div className="max-h-40 overflow-y-auto space-y-1">
+                                                {debugData.allAttendance.length === 0 ? (
+                                                    <p className="text-xs text-gray-500 italic">Nenhum registro no Firebase.</p>
+                                                ) : (
+                                                    debugData.allAttendance.map(a => (
+                                                        <div key={a.id} className="text-xs bg-black/20 p-1 rounded">
+                                                            Date: <span className="text-yellow-400">{a.date}</span> | Created: {new Date(a.createdAt).toLocaleString()}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <h5 className="font-bold text-xs uppercase text-gray-500 mb-2">All Grade Records ({debugData.allGrades.length})</h5>
+                                            <div className="max-h-40 overflow-y-auto space-y-1">
+                                                {debugData.allGrades.length === 0 ? (
+                                                    <p className="text-xs text-gray-500 italic">Nenhum registro no Firebase.</p>
+                                                ) : (
+                                                    debugData.allGrades.map(g => (
+                                                        <div key={g.id} className="text-xs bg-black/20 p-1 rounded">
+                                                            Subj: {g.subject} | Created: <span className="text-yellow-400">{new Date(g.createdAt).toLocaleString()}</span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -446,7 +887,7 @@ const TeacherDashboard = () => {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

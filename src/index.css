@@ -22,3 +22,66 @@
 body {
   @apply bg-slate-900 text-white font-sans;
 }
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Hide everything by default that we don't want */
+  .no-print,
+  button,
+  input,
+  select,
+  nav,
+  header,
+  .sidebar,
+  .debug-section {
+    display: none !important;
+  }
+
+  /* Make sure content takes full width */
+  .max-w-5xl {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Reset backgrounds for printing */
+  div {
+    background-color: transparent !important;
+    border-color: #000 !important;
+    color: black !important;
+    box-shadow: none !important;
+  }
+
+  /* Fix scrollable areas being cut off */
+  * {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* Specific overrides for tables */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    font-size: 12px;
+  }
+
+  th,
+  td {
+    border: 1px solid #000 !important;
+    padding: 4px !important;
+    color: black !important;
+  }
+
+  /* Hide actions column in tables */
+  th:last-child,
+  td:last-child {
+    display: none !important;
+  }
+}

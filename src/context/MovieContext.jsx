@@ -24,8 +24,9 @@ export const MovieProvider = ({ children }) => {
     const { currentUser } = useAuth();
     const [movies, setMovies] = useState([]);
     const [schedule, setSchedule] = useState({
-        Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
+        monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
     });
+    const [monthlySchedule, setMonthlySchedule] = useState([]); // Array of { date, title, ... }
     const [loading, setLoading] = useState(true);
 
     // Real-time sync for Movies
@@ -55,16 +56,43 @@ export const MovieProvider = ({ children }) => {
         const q = query(collection(db, `users/${currentUser.uid}/schedule`));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const scheduleData = {
-                Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: []
+                monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
             };
 
             querySnapshot.docs.forEach(doc => {
                 const data = doc.data();
+                // Check if the day exists in our structure (handles potential legacy data or typos)
                 if (scheduleData[data.day]) {
                     scheduleData[data.day].push({ ...data, id: doc.id });
+                } else {
+                    // Fallback for legacy 'Mon', 'Tue' etc if necessary, or just log it
+                    // For now, assuming new data uses full names. 
+                    // If data.day is 'Mon', we might want to map it? 
+                    // Let's just stick to the requested fix first.
+                    // Actually, let's be safe and map legacy keys if they exist in DB
+                    const map = { 'Mon': 'monday', 'Tue': 'tuesday', 'Wed': 'wednesday', 'Thu': 'thursday', 'Fri': 'friday', 'Sat': 'saturday', 'Sun': 'sunday' };
+                    const normalizedDay = map[data.day] || data.day;
+                    if (scheduleData[normalizedDay]) {
+                        scheduleData[normalizedDay].push({ ...data, id: doc.id });
+                    }
                 }
             });
             setSchedule(scheduleData);
+        });
+        return () => unsubscribe();
+    }, [currentUser]);
+
+    // Real-time sync for Monthly Schedule
+    useEffect(() => {
+        if (!currentUser) return;
+
+        const q = query(collection(db, `users/${currentUser.uid}/monthly_schedule`));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const events = querySnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setMonthlySchedule(events);
         });
         return () => unsubscribe();
     }, [currentUser]);
@@ -191,6 +219,22 @@ export const MovieProvider = ({ children }) => {
         await updateDoc(entryRef, { classes: newClasses });
     };
 
+    // Monthly Schedule Actions
+    const addToMonthlySchedule = async (date, title, description = '') => {
+        if (!currentUser) return;
+        await addDoc(collection(db, `users/${currentUser.uid}/monthly_schedule`), {
+            date, // YYYY-MM-DD
+            title,
+            description,
+            createdAt: new Date().toISOString()
+        });
+    };
+
+    const removeFromMonthlySchedule = async (eventId) => {
+        if (!currentUser) return;
+        await deleteDoc(doc(db, `users/${currentUser.uid}/monthly_schedule`, eventId));
+    };
+
     const toggleKidsLiked = async (id, currentStatus) => {
         if (!currentUser) return;
         const movieRef = doc(db, `users/${currentUser.uid}/movies`, id);
@@ -242,6 +286,9 @@ export const MovieProvider = ({ children }) => {
                 addToSchedule,
                 removeFromSchedule,
                 updateClasses,
+                monthlySchedule,
+                addToMonthlySchedule,
+                removeFromMonthlySchedule,
                 toggleKidsLiked,
                 translateMovies,
                 moveToWishlist,

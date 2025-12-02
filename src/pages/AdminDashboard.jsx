@@ -3,7 +3,7 @@ import { db, firebaseConfig } from '../services/firebase';
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, orderBy, deleteDoc, setDoc } from 'firebase/firestore';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { CheckCircle, XCircle, UserPlus, Users, Film, Mail, Shield, Clock, Search, Trash2, Edit, Save, X, Plus, GraduationCap } from 'lucide-react';
+import { CheckCircle, XCircle, UserPlus, Users, Film, Mail, Shield, Clock, Search, Trash2, Edit, Save, X, Plus, GraduationCap, BookOpen } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useMovies } from '../context/MovieContext';
 import { searchMovies } from '../services/tmdb';
@@ -17,7 +17,9 @@ const AdminDashboard = () => {
     const [newUserEmail, setNewUserEmail] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('overview'); // overview, users, suggestions, add_student
+    const [activeTab, setActiveTab] = useState('overview'); // overview, users, suggestions, add_student, classes
+    const [classes, setClasses] = useState([]);
+    const [newClassName, setNewClassName] = useState('');
 
     // Edit State
     const [editingUser, setEditingUser] = useState(null);
@@ -25,59 +27,276 @@ const AdminDashboard = () => {
 
     // Add Student State
     const [studentName, setStudentName] = useState('');
+    const [studentNames, setStudentNames] = useState(''); // For batch creation
     const [studentPassword, setStudentPassword] = useState('');
     const [creatingStudent, setCreatingStudent] = useState(false);
     const [generatedId, setGeneratedId] = useState('');
+    const [selectedClass, setSelectedClass] = useState('');
 
-    // ... (fetchData and other handlers remain same)
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            // Fetch All Users
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const usersList = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setAllUsers(usersList);
+            setPendingUsers(usersList.filter(user => user.status === 'pending'));
+
+            // Fetch Pre-registered Emails
+            const preRegSnapshot = await getDocs(collection(db, 'pre_registered_emails'));
+            setPreRegisteredEmails(preRegSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch Suggestions
+            const suggestionsQ = query(collection(db, 'suggestions'), orderBy('createdAt', 'desc'));
+            const suggestionsSnapshot = await getDocs(suggestionsQ);
+            setSuggestions(suggestionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+            // Fetch Classes
+            const classesQ = query(collection(db, 'classes'), orderBy('name'));
+            const classesSnapshot = await getDocs(classesQ);
+            setClasses(classesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        } catch (error) {
+            console.error("Error fetching admin data:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleApprove = async (userId) => {
+        try {
+            await updateDoc(doc(db, 'users', userId), { status: 'approved' });
+            setAllUsers(prev => prev.map(user => user.id === userId ? { ...user, status: 'approved' } : user));
+            setPendingUsers(prev => prev.filter(user => user.id !== userId));
+            setMessage(t('userApproved'));
+        } catch (error) {
+            console.error("Error approving user:", error);
+            setMessage(t('errorApproving'));
+        }
+    };
+
+    const handleReject = async (userId) => {
+        try {
+            await updateDoc(doc(db, 'users', userId), { status: 'rejected' });
+            setAllUsers(prev => prev.map(user => user.id === userId ? { ...user, status: 'rejected' } : user));
+            setPendingUsers(prev => prev.filter(user => user.id !== userId));
+            setMessage(t('userRejected'));
+        } catch (error) {
+            console.error("Error rejecting user:", error);
+            setMessage(t('errorRejecting'));
+        }
+    };
+
+    const handleDeleteUser = async (userId) => {
+        if (!window.confirm(t('confirmDelete'))) return;
+
+        try {
+            await deleteDoc(doc(db, 'users', userId));
+            setAllUsers(prev => prev.filter(user => user.id !== userId));
+            setPendingUsers(prev => prev.filter(user => user.id !== userId));
+            setMessage(t('userDeleted'));
+        } catch (error) {
+            console.error("Error deleting user:", error);
+            setMessage(t('errorDeleting'));
+        }
+    };
+
+    const startEditing = (user) => {
+        setEditingUser(user);
+        setEditRole(user.role || 'user');
+    };
+
+    const saveEdit = async () => {
+        if (!editingUser) return;
+
+        try {
+            await updateDoc(doc(db, 'users', editingUser.id), { role: editRole });
+            setAllUsers(prev => prev.map(user => user.id === editingUser.id ? { ...user, role: editRole } : user));
+            setEditingUser(null);
+            setMessage(t('userUpdated'));
+        } catch (error) {
+            console.error("Error updating user:", error);
+            setMessage(t('errorUpdating'));
+        }
+    };
+
+    const { addMovie } = useMovies();
+
+    const handleAddToWishlist = async (suggestion) => {
+        if (!suggestion.title) return;
+        setMessage(`${t('searching') || 'Searching'}: "${suggestion.title}"...`);
+
+        try {
+            const results = await searchMovies(suggestion.title, 'pt-BR');
+
+            if (results && results.length > 0) {
+                const movie = results[0];
+                const result = await addMovie({
+                    title: movie.title,
+                    overview: movie.overview,
+                    rating: movie.vote_average ? movie.vote_average.toFixed(1) : '',
+                    poster_path: movie.poster_path,
+                    release_date: movie.release_date,
+                    tmdb_id: movie.id
+                });
+
+                if (result.skipped.length > 0) {
+                    setMessage(t('duplicateWarning') || `Movie already in wishlist: ${movie.title}`);
+                } else {
+                    setMessage(`${t('movieAdded') || 'Movie added'}: ${movie.title}`);
+                }
+            } else {
+                setMessage(t('noResults') || 'Movie not found on TMDB.');
+            }
+        } catch (error) {
+            console.error("Error adding to wishlist:", error);
+            setMessage(t('errorAdding') || 'Error adding movie.');
+        }
+    };
+
+    const handleCreateClass = async (e) => {
+        e.preventDefault();
+        if (!newClassName) return;
+        try {
+            const docRef = await addDoc(collection(db, 'classes'), {
+                name: newClassName,
+                createdAt: new Date().toISOString()
+            });
+            setClasses(prev => [...prev, { id: docRef.id, name: newClassName }]);
+            setNewClassName('');
+            setMessage('Class created successfully!');
+        } catch (error) {
+            console.error("Error creating class:", error);
+            setMessage('Error creating class.');
+        }
+    };
+
+    const handleDeleteClass = async (classId) => {
+        if (!window.confirm('Delete this class? This will DELETE ALL STUDENTS in this class!')) return;
+
+        try {
+            // 1. Find all students in this class
+            const q = query(collection(db, 'users'), where('studentClass', '==', classes.find(c => c.id === classId)?.name));
+            const snapshot = await getDocs(q);
+
+            // 2. Delete each student (from Firestore 'users' collection)
+            // Note: This only deletes from Firestore. Deleting from Auth requires Admin SDK or Cloud Functions.
+            // For this client-side demo, we'll just delete the Firestore record which effectively removes them from the app.
+            const batch = [];
+            snapshot.docs.forEach(doc => {
+                deleteDoc(doc.ref);
+            });
+
+            // 3. Delete the class itself
+            await deleteDoc(doc(db, 'classes', classId));
+
+            setClasses(prev => prev.filter(c => c.id !== classId));
+            setMessage('Class and all its students deleted.');
+        } catch (error) {
+            console.error("Error deleting class:", error);
+            setMessage('Error deleting class.');
+        }
+    };
+
+    const handlePreRegister = async (e) => {
+        e.preventDefault();
+        if (!newUserEmail) return;
+
+        try {
+            const q = query(collection(db, 'pre_registered_emails'), where('email', '==', newUserEmail));
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                setMessage(t('emailAlreadyExists'));
+                return;
+            }
+
+            const newDocRef = await addDoc(collection(db, 'pre_registered_emails'), {
+                email: newUserEmail,
+                createdAt: new Date().toISOString(),
+                used: false
+            });
+
+            setPreRegisteredEmails(prev => [...prev, { id: newDocRef.id, email: newUserEmail, createdAt: new Date().toISOString(), used: false }]);
+            setNewUserEmail('');
+            setMessage(t('emailPreRegistered'));
+        } catch (error) {
+            console.error("Error pre-registering email:", error);
+            setMessage(t('errorPreRegistering'));
+        }
+    };
 
     const handleCreateStudent = async (e) => {
         e.preventDefault();
-        if (!studentName || !studentPassword) return;
+        if (!studentNames || !studentPassword || !selectedClass) return;
 
         setCreatingStudent(true);
-        setMessage(t('creatingStudent') || 'Creating student...');
+        setMessage(t('creatingStudent') || 'Creating students...');
         setGeneratedId('');
 
-        // Generate Login ID: firstname.lastname.random4
-        const cleanName = studentName.toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
-        const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-        const loginId = `${cleanName}.${randomSuffix}`;
-        const fakeEmail = `${loginId}@escola.com`;
+        // Parse names: split by newline, trim, remove empty
+        const namesList = studentNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
 
-        // Initialize secondary app to create user without logging out admin
+        if (namesList.length === 0) {
+            setCreatingStudent(false);
+            return;
+        }
+
+        // Initialize secondary app
         const secondaryApp = initializeApp(firebaseConfig, "Secondary");
         const secondaryAuth = getAuth(secondaryApp);
 
+        const createdIds = [];
+        let successCount = 0;
+        let failCount = 0;
+
         try {
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, studentPassword);
-            const user = userCredential.user;
+            for (const name of namesList) {
+                // Generate Login ID
+                const cleanName = name.toLowerCase().trim().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
+                const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+                const loginId = `${cleanName}.${randomSuffix}`;
+                const fakeEmail = `${loginId}@escola.com`;
 
-            // Create user document in Firestore (using main app's db)
-            await setDoc(doc(db, "users", user.uid), {
-                email: fakeEmail, // Still need email for Firebase
-                loginId: loginId, // The ID student will use
-                name: studentName,
-                role: 'student',
-                status: 'approved',
-                createdAt: new Date().toISOString(),
-                photoURL: null
-            });
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, fakeEmail, studentPassword);
+                    const user = userCredential.user;
 
-            // Sign out from secondary app to clean up
+                    await setDoc(doc(db, "users", user.uid), {
+                        email: fakeEmail,
+                        loginId: loginId,
+                        name: name,
+                        role: 'student',
+                        studentClass: selectedClass,
+                        status: 'approved',
+                        createdAt: new Date().toISOString(),
+                        photoURL: null
+                    });
+
+                    createdIds.push(`${name}: ${loginId}`);
+                    successCount++;
+                } catch (err) {
+                    console.error(`Error creating ${name}:`, err);
+                    failCount++;
+                }
+            }
+
             await signOut(secondaryAuth);
 
-            setMessage(t('studentCreated') || 'Student created successfully!');
-            setGeneratedId(loginId);
-            setStudentName('');
-            setStudentPassword('');
+            setMessage(`Created ${successCount} students. Failed: ${failCount}`);
+            setGeneratedId(createdIds.join('\n'));
+            setStudentNames('');
+            // Keep password for convenience if adding more batches? Or clear it? Let's clear it.
+            // setStudentPassword(''); 
 
-            // Refresh users list
             fetchData();
 
         } catch (error) {
-            console.error("Error creating student:", error);
-            setMessage(`${t('errorCreatingStudent') || 'Error creating student'}: ${error.message}`);
+            console.error("Error in batch creation:", error);
+            setMessage(`Error: ${error.message}`);
         } finally {
             setCreatingStudent(false);
         }
@@ -109,6 +328,7 @@ const AdminDashboard = () => {
                     <div className="flex gap-3 overflow-x-auto w-full md:w-auto pb-2 md:pb-0">
                         <TabButton id="overview" label={t('pendingApprovals')} icon={Shield} />
                         <TabButton id="users" label={t('allUsers')} icon={Users} />
+                        <TabButton id="classes" label="Classes" icon={BookOpen} />
                         <TabButton id="suggestions" label={t('movieSuggestions')} icon={Film} />
                         <TabButton id="add_student" label={t('addStudent') || 'Add Student'} icon={GraduationCap} />
                     </div>
@@ -322,6 +542,62 @@ const AdminDashboard = () => {
                             </div>
                         )}
 
+                        {/* CLASSES TAB */}
+                        {activeTab === 'classes' && (
+                            <div className="backdrop-blur-md border rounded-3xl p-6" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <div className="p-3 rounded-xl" style={{ backgroundColor: 'rgba(255, 215, 0, 0.1)' }}>
+                                        <BookOpen className="w-6 h-6" style={{ color: 'var(--text-secondary)' }} />
+                                    </div>
+                                    <h2 className="text-xl font-bold">Manage Classes</h2>
+                                </div>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div>
+                                        <h3 className="font-bold mb-4 opacity-70">Create New Class</h3>
+                                        <form onSubmit={handleCreateClass} className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={newClassName}
+                                                onChange={(e) => setNewClassName(e.target.value)}
+                                                placeholder="Class Name (e.g. 1A)"
+                                                className="flex-1 p-3 rounded-xl border bg-transparent"
+                                                style={{ borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="px-6 py-3 rounded-xl font-bold transition-colors"
+                                                style={{ backgroundColor: 'var(--text-secondary)', color: 'var(--bg-main)' }}
+                                            >
+                                                Add
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="font-bold mb-4 opacity-70">Existing Classes</h3>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                                            {classes.length === 0 ? (
+                                                <p className="opacity-50 italic">No classes created yet.</p>
+                                            ) : (
+                                                classes.map(cls => (
+                                                    <div key={cls.id} className="flex justify-between items-center p-3 rounded-xl border" style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)' }}>
+                                                        <span className="font-bold">{cls.name}</span>
+                                                        <button
+                                                            onClick={() => handleDeleteClass(cls.id)}
+                                                            className="text-red-400 hover:bg-red-500/10 p-2 rounded-lg"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* SUGGESTIONS TAB */}
                         {activeTab === 'suggestions' && (
                             <div className="backdrop-blur-md border rounded-3xl p-6" style={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border)' }}>
@@ -380,9 +656,9 @@ const AdminDashboard = () => {
 
                                 {generatedId && (
                                     <div className="p-6 rounded-xl mb-8 animate-fade-in border border-green-500/50 bg-green-500/10 text-center">
-                                        <h3 className="text-xl font-bold text-green-400 mb-2">{t('studentCreatedWithId') || 'Student Created!'}</h3>
-                                        <p className="text-gray-300 mb-2">{t('loginIdLabel') || 'Login ID:'}</p>
-                                        <div className="text-3xl font-mono font-bold text-white bg-black/30 p-4 rounded-xl inline-block select-all">
+                                        <h3 className="text-xl font-bold text-green-400 mb-2">{t('studentCreatedWithId') || 'Students Created!'}</h3>
+                                        <p className="text-gray-300 mb-2">{t('loginIdLabel') || 'Login IDs:'}</p>
+                                        <div className="text-sm font-mono font-bold text-white bg-black/30 p-4 rounded-xl inline-block select-all whitespace-pre-wrap text-left">
                                             {generatedId}
                                         </div>
                                         <p className="text-sm text-gray-400 mt-2">{t('saveIdWarning') || 'Save this ID. The student needs it to login.'}</p>
@@ -391,20 +667,39 @@ const AdminDashboard = () => {
 
                                 <form onSubmit={handleCreateStudent} className="space-y-4 max-w-md">
                                     <div>
-                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('studentName') || 'Student Name'}</label>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">{t('studentName') || 'Student Names (One per line)'}</label>
                                         <div className="relative">
                                             <Users className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
-                                            <input
-                                                type="text"
-                                                value={studentName}
-                                                onChange={(e) => setStudentName(e.target.value)}
-                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors"
+                                            <textarea
+                                                value={studentNames}
+                                                onChange={(e) => setStudentNames(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors h-32 resize-none"
                                                 style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
-                                                placeholder="Ex: Joao Silva"
+                                                placeholder="Joao Silva&#10;Maria Santos&#10;Pedro Oliveira"
                                                 required
                                             />
                                         </div>
                                     </div>
+
+                                    <div>
+                                        <label className="block text-sm font-bold mb-2 opacity-70">Class (Turma)</label>
+                                        <div className="relative">
+                                            <BookOpen className="absolute left-3 top-3.5 w-5 h-5 opacity-50" />
+                                            <select
+                                                value={selectedClass}
+                                                onChange={(e) => setSelectedClass(e.target.value)}
+                                                className="w-full pl-10 pr-4 py-3 border rounded-xl focus:outline-none transition-colors appearance-none"
+                                                style={{ backgroundColor: 'var(--bg-main)', borderColor: 'var(--border)', color: 'var(--text-primary)' }}
+                                                required
+                                            >
+                                                <option value="">Select a Class</option>
+                                                {classes.map(cls => (
+                                                    <option key={cls.id} value={cls.name}>{cls.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     <div>
                                         <label className="block text-sm font-bold mb-2 opacity-70">{t('password') || 'Password'}</label>
                                         <div className="relative">
@@ -435,7 +730,7 @@ const AdminDashboard = () => {
                                         ) : (
                                             <>
                                                 <UserPlus className="w-5 h-5" />
-                                                {t('createStudent') || 'Create Student'}
+                                                {t('createStudent') || 'Create Students'}
                                             </>
                                         )}
                                     </button>

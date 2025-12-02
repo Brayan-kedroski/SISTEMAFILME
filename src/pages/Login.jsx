@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Film, Lock, Mail, Chrome, Wand2 } from 'lucide-react';
+import { Film, Lock, Mail, Chrome, Wand2, School } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import clsx from 'clsx';
 
@@ -158,7 +158,7 @@ const Login = () => {
             <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
                 <div className="text-center mb-8">
                     <div className="flex justify-center mb-4">
-                        <Film className="w-12 h-12 text-blue-500" />
+                        <School className="w-12 h-12 text-blue-500" />
                     </div>
                     <h2 className="text-3xl font-bold text-white">
                         {t('loginWelcome') || 'Welcome Back'}
